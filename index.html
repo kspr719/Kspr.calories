@@ -279,6 +279,24 @@ details.more .items li{padding-left:0}
 .w-s2{stop-color:var(--accent);stop-opacity:0}
 .wform{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
 .wform .primary{grid-column:auto;padding:0 22px}
+
+/* Protéines, eau, repas habituels */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mini{background:var(--surface);border:1px solid var(--hair);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.mval{font:600 26px/1 var(--font-display);font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.mval small{font:500 11px var(--font-data);color:var(--muted);letter-spacing:.04em}
+.mnote{margin:0;font:500 11px/1.4 var(--font-data);color:var(--muted)}
+.mnote:empty{display:none}
+.bar i.done{background:linear-gradient(90deg,var(--accent),#E4DCFF)}
+.wbtns{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sq2{height:44px;width:44px;background:var(--field);border:1px solid var(--line);border-radius:12px;font:600 20px/1 var(--font-display);color:var(--fg)}
+.sq2:active{background:var(--accent-b)}
+.mh{display:flex;align-items:baseline;gap:14px}
+.mealhead .linkbtn{font-size:12px;padding:2px}
+.sub{display:block;color:var(--muted);font:500 11px/1.5 var(--font-data)}
+.savemeal{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}
+.savemeal input{height:46px}
+.savemeal .ghost{min-height:46px}
 </style>
 
 </head>
@@ -364,6 +382,26 @@ details.more .items li{padding-left:0}
     <button type="button" class="linkbtn" id="editProfile">Calculer mon objectif</button>
   </section>
 
+
+  <section class="duo" aria-label="Protéines et eau">
+    <div class="mini">
+      <span class="cap">Protéines</span>
+      <div class="mval"><span id="protVal">0</span><small>/ <span id="protGoal">150</span> g</small></div>
+      <div class="bar" aria-hidden="true"><i id="protBar"></i></div>
+      <p class="mnote" id="protNote"></p>
+    </div>
+    <div class="mini">
+      <span class="cap">Eau</span>
+      <div class="mval"><span id="waterVal">0</span><small>/ <span id="waterGoal">8</span> verres</small></div>
+      <div class="bar" aria-hidden="true"><i id="waterBar"></i></div>
+      <div class="wbtns">
+        <button type="button" class="sq2" id="waterMinus" aria-label="Retirer un verre">−</button>
+        <span class="mnote" id="waterL">0 L</span>
+        <button type="button" class="sq2" id="waterPlus" aria-label="Ajouter un verre">+</button>
+      </div>
+    </div>
+  </section>
+
   <section class="sec" aria-label="Ajouter un aliment">
     <h2 class="cap">Ajouter un aliment</h2>
     <form class="addform" id="addForm" autocomplete="off">
@@ -381,7 +419,11 @@ details.more .items li{padding-left:0}
         <label class="cap" for="fKcal">Calories</label>
         <input id="fKcal" type="text" inputmode="decimal" placeholder="130 ou 100+30">
       </div>
-      <div class="field full">
+      <div class="field">
+        <label class="cap" for="fProt">Protéines (g)</label>
+        <input id="fProt" type="text" inputmode="decimal" placeholder="facultatif">
+      </div>
+      <div class="field">
         <label class="cap" for="fMeal">Repas</label>
         <select id="fMeal">
           <option value="petit-dej">Petit-déjeuner</option>
@@ -390,10 +432,14 @@ details.more .items li{padding-left:0}
           <option value="diner">Dîner</option>
         </select>
       </div>
-      <label class="remember full" id="rememberRow" hidden><input type="checkbox" id="fRemember"> Mémoriser cet aliment, calories pour 100 g</label>
+      <label class="remember full" id="rememberRow" hidden><input type="checkbox" id="fRemember"> Mémoriser cet aliment, valeurs pour 100 g</label>
       <p class="msg" id="formMsg" role="alert"></p>
       <button type="submit" class="primary">Ajouter</button>
     </form>
+    <div class="recents" id="mealsBox" hidden>
+      <span class="cap">Repas habituels, un tap pour ajouter</span>
+      <div class="chips" id="mealChips"></div>
+    </div>
     <div class="recents" id="recentsBox" hidden>
       <span class="cap">Déjà mangés</span>
       <div class="chips" id="chips"></div>
@@ -436,6 +482,20 @@ details.more .items li{padding-left:0}
 
   <section class="sec" aria-label="Aliments et sauvegarde">
     <h2 class="cap">Mes aliments et mes données</h2>
+    <details class="more">
+      <summary>Mes repas habituels</summary>
+      <ul class="items" id="mealsList"></ul>
+      <p class="note" id="mealsEmpty">Aucun repas habituel. Dans le journal, appuie sur « Mémoriser » à côté d'un repas.</p>
+    </details>
+    <details class="more">
+      <summary>Mes objectifs protéines et eau</summary>
+      <form class="stack" id="targetsForm" autocomplete="off">
+        <div class="field"><label class="cap" for="tProt">Protéines par jour (g)</label><input id="tProt" type="text" inputmode="numeric" placeholder="auto"></div>
+        <div class="field"><label class="cap" for="tWater">Eau par jour (verres de 25 cl)</label><input id="tWater" type="text" inputmode="numeric" placeholder="8"></div>
+        <p class="note" id="tNote"></p>
+        <button type="submit" class="ghost">Enregistrer</button>
+      </form>
+    </details>
     <details class="more">
       <summary>Mes aliments, calories pour 100 g</summary>
       <ul class="items" id="foodsList"></ul>
@@ -497,6 +557,11 @@ details.more .items li{padding-left:0}
     editing: false,
     weights: {},
     foods: [],
+    meals: [],
+    water: {},
+    proteinGoal: null,
+    waterGoal: 8,
+    savingMeal: null,
     mode: "pending",
     date: todayStr()
   };
@@ -516,7 +581,7 @@ details.more .items li{padding-left:0}
 
   /* ---------- Stockage ---------- */
   function saveLocal(){
-    try { localStorage.setItem(LS_KEY, JSON.stringify({days: state.days, goal: state.goal, tdee: state.tdee, profile: state.profile, skipped: state.skipped, weights: state.weights, foods: state.foods})); } catch (e) {}
+    try { localStorage.setItem(LS_KEY, JSON.stringify({days: state.days, goal: state.goal, tdee: state.tdee, profile: state.profile, skipped: state.skipped, weights: state.weights, foods: state.foods, meals: state.meals, water: state.water, proteinGoal: state.proteinGoal, waterGoal: state.waterGoal})); } catch (e) {}
   }
   function loadLocal(){
     try {
@@ -530,6 +595,10 @@ details.more .items li{padding-left:0}
       if (v && v.skipped) state.skipped = true;
       if (v && v.weights && typeof v.weights === "object") state.weights = v.weights;
       if (v && Array.isArray(v.foods)) state.foods = v.foods;
+      if (v && Array.isArray(v.meals)) state.meals = v.meals;
+      if (v && v.water && typeof v.water === "object") state.water = v.water;
+      if (v && Number(v.proteinGoal) > 0) state.proteinGoal = Number(v.proteinGoal);
+      if (v && Number(v.waterGoal) > 0) state.waterGoal = Number(v.waterGoal);
       if (state.profile && Number(state.profile.weight) > 0 && !Object.keys(state.weights).length) state.weights[todayStr()] = Number(state.profile.weight);
     } catch (e) {}
   }
@@ -540,13 +609,15 @@ details.more .items li{padding-left:0}
       if (!it) return;
       var k = Number(it.kcal);
       if (!isFinite(k)) return;
-      out.push({
+      var obj = {
         id: String(it.id || uid()),
         name: String(it.name || "Aliment").slice(0, 80),
         kcal: k,
         meal: it.meal || "collation",
         t: Number(it.t) || 0
-      });
+      };
+      if (it.p !== undefined && it.p !== null && it.p !== "" && isFinite(Number(it.p)) && Number(it.p) >= 0) obj.p = Number(it.p);
+      out.push(obj);
     });
     return out;
   }
@@ -612,12 +683,24 @@ details.more .items li{padding-left:0}
       var meal = node("div", "meal");
       var head = node("div", "mealhead");
       head.appendChild(node("span", "cap", m.label));
-      head.appendChild(node("span", "num", nf(sum(list)) + " kcal"));
+      var right = node("span", "mh");
+      var sv = node("button", "linkbtn", state.savingMeal === m.id ? "Annuler" : "Mémoriser");
+      sv.type = "button";
+      sv.addEventListener("click", function(){
+        state.savingMeal = state.savingMeal === m.id ? null : m.id;
+        render();
+        if (state.savingMeal) setTimeout(function(){ var inp = $("mealName"); if (inp) { inp.focus(); inp.select(); } }, 0);
+      });
+      right.appendChild(sv);
+      right.appendChild(node("span", "num", nf(sum(list)) + " kcal"));
+      head.appendChild(right);
       meal.appendChild(head);
       var ul = node("ul", "items");
       list.forEach(function(it){
         var li = node("li");
-        li.appendChild(node("span", "nm", it.name));
+        var nmSpan = node("span", "nm", it.name);
+        if (it.p != null && isFinite(Number(it.p))) nmSpan.appendChild(node("small", "sub", lab(it.p) + " g de protéines"));
+        li.appendChild(nmSpan);
         li.appendChild(node("span", "num", nf(it.kcal)));
         var b = node("button", "del", "×");
         b.type = "button";
@@ -627,6 +710,31 @@ details.more .items li{padding-left:0}
         ul.appendChild(li);
       });
       meal.appendChild(ul);
+      if (state.savingMeal === m.id) {
+        var f = node("form", "savemeal");
+        var inp = node("input");
+        inp.type = "text"; inp.id = "mealName"; inp.maxLength = 40; inp.value = m.label + " habituel";
+        inp.setAttribute("aria-label", "Nom du repas habituel");
+        var ok = node("button", "ghost", "Enregistrer");
+        ok.type = "submit";
+        f.appendChild(inp); f.appendChild(ok);
+        f.addEventListener("submit", function(ev){
+          ev.preventDefault();
+          var name = inp.value.trim().slice(0, 40) || (m.label + " habituel");
+          var its = list.map(function(it){
+            var o = {name: it.name, kcal: it.kcal};
+            if (it.p != null && isFinite(Number(it.p))) o.p = Number(it.p);
+            return o;
+          });
+          state.meals.unshift({id: uid(), name: name, meal: m.id, items: its});
+          state.meals = state.meals.slice(0, 30);
+          state.savingMeal = null;
+          persistSettings();
+          render();
+          toast("Repas habituel « " + name + " » enregistré.");
+        });
+        meal.appendChild(f);
+      }
       wrap.appendChild(meal);
     });
     el.log.appendChild(wrap);
@@ -650,6 +758,7 @@ details.more .items li{padding-left:0}
         el.fName.value = it.name;
         clearFood();
         el.fKcal.value = String(it.kcal);
+        if (it.p != null) $("fProt").value = String(it.p).replace(".", ",");
         el.formMsg.textContent = "";
         el.fKcal.focus();
       });
@@ -729,6 +838,9 @@ details.more .items li{padding-left:0}
     renderWeek();
     renderWeight();
     renderFoodsList();
+    renderDaily();
+    renderMeals();
+    renderMealsList();
   }
 
   /* ---------- Actions ---------- */
@@ -753,10 +865,17 @@ details.more .items li{padding-left:0}
       $("fGrams").focus();
       return;
     }
+    var protRaw = $("fProt").value.trim();
+    var prv = num(protRaw);
+    if (protRaw && !(prv >= 0 && prv <= 500)) {
+      el.formMsg.textContent = "Entre les protéines en grammes, par exemple 30.";
+      $("fProt").focus();
+      return;
+    }
     el.formMsg.textContent = "";
     var base = (el.fName.value.trim() || "Aliment").slice(0, 60);
     var nm = g > 0 ? base + ", " + String(Math.round(g * 10) / 10).replace(".", ",") + " g" : base;
-    if (g > 0 && !foodSel && $("fRemember").checked && el.fName.value.trim()) saveFood(el.fName.value.trim(), k / g * 100);
+    if (g > 0 && !foodSel && $("fRemember").checked && el.fName.value.trim()) saveFood(el.fName.value.trim(), k / g * 100, protRaw && prv >= 0 ? prv / g * 100 : null);
     var item = {
       id: uid(),
       name: nm,
@@ -764,6 +883,7 @@ details.more .items li{padding-left:0}
       meal: el.fMeal.value,
       t: Date.now()
     };
+    if (protRaw && prv >= 0) item.p = Math.round(prv * 10) / 10;
     commitDay(state.date, dayItems(state.date).concat([item]));
     el.fName.value = "";
     el.fKcal.value = "";
@@ -918,36 +1038,36 @@ details.more .items li{padding-left:0}
   /* ---------- Aliments : calcul par grammes ---------- */
   // Calories pour 100 g, valeurs moyennes indicatives (aliments cuits quand c'est précisé).
   var FOODS = [
-    ["Blanc de poulet cru",110],["Blanc de poulet cuit",165],["Cuisse de poulet cuite, sans peau",200],
-    ["Dinde cuite",140],["Steak haché 5 % cuit",170],["Steak haché 15 % cuit",250],["Bœuf, steak cuit",220],
-    ["Jambon blanc",110],["Saumon cuit",210],["Thon au naturel",115],["Cabillaud cuit",105],["Crevettes cuites",100],
-    ["Œuf entier",145],
-    ["Riz blanc cuit",130],["Riz complet cuit",125],["Pâtes cuites",150],["Semoule cuite",120],["Quinoa cuit",120],
-    ["Pommes de terre cuites",85],["Patate douce cuite",90],["Frites",300],["Lentilles cuites",115],
-    ["Pois chiches cuits",165],["Haricots rouges cuits",125],["Flocons d'avoine",370],["Céréales du petit-déjeuner",375],
-    ["Pain baguette",280],["Pain complet",250],
-    ["Brocoli cuit",35],["Haricots verts cuits",30],["Carotte crue",40],["Tomate",18],["Concombre",12],
-    ["Salade verte",15],["Courgette cuite",20],["Champignons",25],["Épinards cuits",25],["Oignon",40],["Avocat",160],
-    ["Banane",90],["Pomme",55],["Orange",45],["Fraises",32],["Raisin",70],["Mangue",60],["Ananas",50],
-    ["Litchi",66],["Papaye",43],["Pastèque",30],
-    ["Lait demi-écrémé",46],["Yaourt nature",55],["Fromage blanc 0 %",45],["Skyr nature",60],
-    ["Emmental",380],["Mozzarella",250],["Beurre",745],["Crème fraîche épaisse",300],
-    ["Huile d'olive",900],["Mayonnaise",700],["Ketchup",110],["Miel",305],["Sucre",400],
-    ["Beurre de cacahuète",600],["Amandes",600],["Noix de cajou",580],
-    ["Chocolat noir",560],["Chocolat au lait",535],["Pâte à tartiner",540],["Biscuits secs",450],["Chips",540],
-    ["Pizza",250],["Poudre de protéines (whey)",400],["Coca-Cola",42],["Jus d'orange",45]
+    ["Blanc de poulet cru",110,23],["Blanc de poulet cuit",165,31],["Cuisse de poulet cuite, sans peau",200,26],
+    ["Dinde cuite",140,29],["Steak haché 5 % cuit",170,27],["Steak haché 15 % cuit",250,26],["Bœuf, steak cuit",220,27],
+    ["Jambon blanc",110,19],["Saumon cuit",210,23],["Thon au naturel",115,25],["Cabillaud cuit",105,23],["Crevettes cuites",100,22],
+    ["Œuf entier",145,12.5],
+    ["Riz blanc cuit",130,2.7],["Riz complet cuit",125,2.7],["Pâtes cuites",150,5.5],["Semoule cuite",120,4],["Quinoa cuit",120,4.4],
+    ["Pommes de terre cuites",85,2],["Patate douce cuite",90,2],["Frites",300,3.5],["Lentilles cuites",115,9],
+    ["Pois chiches cuits",165,8.5],["Haricots rouges cuits",125,8.5],["Flocons d'avoine",370,13],["Céréales du petit-déjeuner",375,7],
+    ["Pain baguette",280,9],["Pain complet",250,9],
+    ["Brocoli cuit",35,2.4],["Haricots verts cuits",30,1.8],["Carotte crue",40,0.9],["Tomate",18,0.9],["Concombre",12,0.6],
+    ["Salade verte",15,1.2],["Courgette cuite",20,1.2],["Champignons",25,3],["Épinards cuits",25,3],["Oignon",40,1.1],["Avocat",160,2],
+    ["Banane",90,1.1],["Pomme",55,0.3],["Orange",45,0.9],["Fraises",32,0.7],["Raisin",70,0.7],["Mangue",60,0.8],["Ananas",50,0.5],
+    ["Litchi",66,0.8],["Papaye",43,0.5],["Pastèque",30,0.6],
+    ["Lait demi-écrémé",46,3.3],["Yaourt nature",55,4.5],["Fromage blanc 0 %",45,7.5],["Skyr nature",60,11],
+    ["Emmental",380,28],["Mozzarella",250,18],["Beurre",745,0.7],["Crème fraîche épaisse",300,2.2],
+    ["Huile d'olive",900,0],["Mayonnaise",700,1.5],["Ketchup",110,1.3],["Miel",305,0.4],["Sucre",400,0],
+    ["Beurre de cacahuète",600,25],["Amandes",600,21],["Noix de cajou",580,18],
+    ["Chocolat noir",560,7],["Chocolat au lait",535,7.5],["Pâte à tartiner",540,6],["Biscuits secs",450,7],["Chips",540,6.5],
+    ["Pizza",250,11],["Poudre de protéines (whey)",400,78],["Coca-Cola",42,0],["Jus d'orange",45,0.7]
   ];
   var foodSel = null;
   var fEl = {
     name: $("fName"), grams: $("fGrams"), kcal: $("fKcal"), suggest: $("suggest"), hint: $("foodHint"),
-    remRow: $("rememberRow"), rem: $("fRemember")
+    remRow: $("rememberRow"), rem: $("fRemember"), prot: $("fProt")
   };
   function norm(t){
     return String(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
   }
-  var dbFoods = FOODS.map(function(f){ return {n: f[0], k: f[1], nn: norm(f[0]), own: false}; });
+  var dbFoods = FOODS.map(function(f){ return {n: f[0], k: f[1], p: f[2], nn: norm(f[0]), own: false}; });
   function allFoods(){
-    var own = state.foods.map(function(f){ return {n: f.n, k: f.k, nn: norm(f.n), own: true}; });
+    var own = state.foods.map(function(f){ return {n: f.n, k: f.k, p: f.p, nn: norm(f.n), own: true}; });
     return own.concat(dbFoods);
   }
   function searchFoods(q){
@@ -980,7 +1100,7 @@ details.more .items li{padding-left:0}
   }
   function setHint(){
     fEl.hint.hidden = !foodSel;
-    fEl.hint.textContent = foodSel ? nf(foodSel.k) + " kcal pour 100 g. Entre les grammes pour calculer." : "";
+    fEl.hint.textContent = foodSel ? nf(foodSel.k) + " kcal" + (foodSel.p != null ? " et " + lab(foodSel.p) + " g de protéines" : "") + " pour 100 g. Entre les grammes pour calculer." : "";
   }
   function pickFood(f){
     foodSel = f;
@@ -993,7 +1113,10 @@ details.more .items li{padding-left:0}
   }
   function calcFromGrams(){
     var g = num(fEl.grams.value);
-    if (foodSel && g > 0) fEl.kcal.value = String(Math.round(g * foodSel.k / 100));
+    if (foodSel && g > 0) {
+      fEl.kcal.value = String(Math.round(g * foodSel.k / 100));
+      if (foodSel.p != null) fEl.prot.value = String(Math.round(g * foodSel.p / 10) / 10).replace(".", ",");
+    }
   }
   function exactMatch(){
     var q = norm(fEl.name.value);
@@ -1011,6 +1134,7 @@ details.more .items li{padding-left:0}
   function clearFood(){
     foodSel = null;
     fEl.grams.value = "";
+    fEl.prot.value = "";
     fEl.suggest.textContent = "";
     fEl.suggest.hidden = true;
     setHint();
@@ -1029,13 +1153,20 @@ details.more .items li{padding-left:0}
   });
   fEl.kcal.addEventListener("input", updateRemember);
 
-  function saveFood(name, k100){
+  function saveFood(name, k100, p100){
     var key = norm(name);
     var k = Math.round(k100);
     if (!key || !(k > 0 && k < 1000)) return;
+    var p = p100 != null && isFinite(p100) && p100 >= 0 && p100 <= 100 ? Math.round(p100 * 10) / 10 : null;
     var found = false;
-    state.foods.forEach(function(f){ if (norm(f.n) === key) { f.k = k; found = true; } });
-    if (!found) state.foods.unshift({n: name.slice(0, 60), k: k});
+    state.foods.forEach(function(f){
+      if (norm(f.n) === key) { f.k = k; if (p != null) f.p = p; found = true; }
+    });
+    if (!found) {
+      var nf0 = {n: name.slice(0, 60), k: k};
+      if (p != null) nf0.p = p;
+      state.foods.unshift(nf0);
+    }
     state.foods = state.foods.slice(0, 100);
     persistSettings();
     renderFoodsList();
@@ -1049,7 +1180,7 @@ details.more .items li{padding-left:0}
     state.foods.forEach(function(f, i){
       var li = node("li");
       li.appendChild(node("span", "nm", f.n));
-      li.appendChild(node("span", "num", nf(f.k) + " /100 g"));
+      li.appendChild(node("span", "num", nf(f.k) + " /100 g" + (f.p != null ? " · " + lab(f.p) + " g prot." : "")));
       var b = node("button", "del", "×");
       b.type = "button";
       b.setAttribute("aria-label", "Supprimer " + f.n);
@@ -1207,17 +1338,136 @@ details.more .items li{padding-left:0}
     toast(msg);
   });
 
+
+  /* ---------- Protéines et eau du jour ---------- */
+  function currentWeight(){
+    var ds = Object.keys(state.weights).sort();
+    if (ds.length) return state.weights[ds[ds.length - 1]];
+    return state.profile ? Number(state.profile.weight) || null : null;
+  }
+  function protGoal(){
+    if (state.proteinGoal > 0) return state.proteinGoal;
+    var w = currentWeight();
+    return w ? Math.round(1.6 * w / 5) * 5 : 120;
+  }
+  function litres(n){ return String(Math.round(n * 25) / 100).replace(".", ",") + " L"; }
+  function renderDaily(){
+    var items = dayItems(state.date);
+    var tot = 0, miss = 0;
+    items.forEach(function(it){
+      if (it.p != null && isFinite(Number(it.p))) tot += Number(it.p); else miss++;
+    });
+    var goal = protGoal();
+    $("protVal").textContent = nf(tot);
+    $("protGoal").textContent = nf(goal);
+    $("protBar").style.width = Math.min(100, goal > 0 ? tot / goal * 100 : 0) + "%";
+    $("protBar").classList.toggle("done", tot >= goal && goal > 0);
+    $("protNote").textContent = !items.length ? "" : miss > 0 ? miss + (miss > 1 ? " aliments sans valeur" : " aliment sans valeur") : "";
+
+    var n = state.water[state.date] || 0;
+    var wg = state.waterGoal || 8;
+    $("waterVal").textContent = String(n);
+    $("waterGoal").textContent = String(wg);
+    $("waterBar").style.width = Math.min(100, n / wg * 100) + "%";
+    $("waterBar").classList.toggle("done", n >= wg);
+    $("waterL").textContent = litres(n);
+    $("waterMinus").disabled = n <= 0;
+    $("tNote").textContent = state.proteinGoal > 0
+      ? "Objectif de protéines choisi par toi. Laisse la case vide pour revenir au calcul automatique."
+      : "Calcul automatique : 1,6 g par kg de poids, soit " + nf(protGoal()) + " g. Valeurs indicatives.";
+  }
+  function setWater(n){
+    n = Math.max(0, Math.min(30, n));
+    if (n) state.water[state.date] = n; else delete state.water[state.date];
+    persistSettings();
+    renderDaily();
+  }
+  $("waterPlus").addEventListener("click", function(){ setWater((state.water[state.date] || 0) + 1); });
+  $("waterMinus").addEventListener("click", function(){ setWater((state.water[state.date] || 0) - 1); });
+
+  $("targetsForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var pr = $("tProt").value.trim(), wt = $("tWater").value.trim();
+    var p = pr ? parseInt(pr, 10) : null;
+    var w = wt ? parseInt(wt, 10) : 8;
+    if ((pr && !(p >= 30 && p <= 400)) || !(w >= 1 && w <= 30)) {
+      $("tNote").textContent = "Protéines : de 30 à 400 g. Eau : de 1 à 30 verres.";
+      return;
+    }
+    state.proteinGoal = p;
+    state.waterGoal = w;
+    persistSettings();
+    render();
+    toast("Objectifs enregistrés.");
+  });
+  function fillTargets(){
+    $("tProt").value = state.proteinGoal ? String(state.proteinGoal) : "";
+    $("tWater").value = String(state.waterGoal || 8);
+  }
+
+  /* ---------- Repas habituels ---------- */
+  function mealKcal(m){ return m.items.reduce(function(a, i){ return a + i.kcal; }, 0); }
+  function addSavedMeal(m){
+    var date = state.date, ids = [], now = Date.now();
+    var add = m.items.map(function(it, i){
+      var id = uid() + i;
+      ids.push(id);
+      var o = {id: id, name: it.name, kcal: it.kcal, meal: m.meal || "dejeuner", t: now + i};
+      if (it.p != null) o.p = it.p;
+      return o;
+    });
+    commitDay(date, dayItems(date).concat(add));
+    toast("« " + m.name + " » ajouté : " + nf(mealKcal(m)) + " kcal.", "Annuler", function(){
+      commitDay(date, dayItems(date).filter(function(it){ return ids.indexOf(it.id) < 0; }));
+    });
+  }
+  function renderMeals(){
+    var box = $("mealChips");
+    box.textContent = "";
+    $("mealsBox").hidden = state.meals.length === 0;
+    state.meals.forEach(function(m){
+      var b = node("button", "chip", m.name);
+      b.type = "button";
+      b.appendChild(node("b", null, nf(mealKcal(m)) + " kcal"));
+      b.addEventListener("click", function(){ addSavedMeal(m); });
+      box.appendChild(b);
+    });
+  }
+  function renderMealsList(){
+    var ul = $("mealsList");
+    ul.textContent = "";
+    ul.hidden = state.meals.length === 0;
+    $("mealsEmpty").hidden = state.meals.length > 0;
+    state.meals.forEach(function(m, i){
+      var li = node("li");
+      li.appendChild(node("span", "nm", m.name));
+      li.appendChild(node("span", "num", nf(mealKcal(m)) + " kcal"));
+      var b = node("button", "del", "×");
+      b.type = "button";
+      b.setAttribute("aria-label", "Supprimer " + m.name);
+      b.addEventListener("click", function(){
+        state.meals.splice(i, 1);
+        persistSettings();
+        renderMeals();
+        renderMealsList();
+      });
+      li.appendChild(b);
+      ul.appendChild(li);
+    });
+  }
+
   /* ---------- Sauvegarde ---------- */
   function snapshot(){
     return JSON.stringify({
-      app: "suivi-calories", v: 3, saved: new Date().toISOString(),
+      app: "suivi-calories", v: 4, saved: new Date().toISOString(),
       days: state.days, goal: state.goal, tdee: state.tdee, profile: state.profile,
-      skipped: state.skipped, weights: state.weights, foods: state.foods
+      skipped: state.skipped, weights: state.weights, foods: state.foods,
+      meals: state.meals, water: state.water, proteinGoal: state.proteinGoal, waterGoal: state.waterGoal
     });
   }
   function sanitize(o){
     if (!o || o.app !== "suivi-calories" || !o.days || typeof o.days !== "object") return null;
-    var out = {days: {}, weights: {}, foods: [], goal: 1875, tdee: null, profile: null, skipped: !!o.skipped};
+    var out = {days: {}, weights: {}, foods: [], meals: [], water: {}, proteinGoal: null, waterGoal: 8, goal: 1875, tdee: null, profile: null, skipped: !!o.skipped};
     var re = /^\d{4}-\d{2}-\d{2}$/;
     Object.keys(o.days).forEach(function(d){
       if (re.test(d)) { var it = clean(o.days[d]); if (it.length) out.days[d] = it; }
@@ -1230,9 +1480,32 @@ details.more .items li{padding-left:0}
     }
     if (Array.isArray(o.foods)) {
       o.foods.slice(0, 100).forEach(function(f){
-        if (f && typeof f.n === "string" && Number(f.k) > 0 && Number(f.k) < 1000) out.foods.push({n: f.n.slice(0, 60), k: Math.round(Number(f.k))});
+        if (f && typeof f.n === "string" && Number(f.k) > 0 && Number(f.k) < 1000) {
+          var fo = {n: f.n.slice(0, 60), k: Math.round(Number(f.k))};
+          if (f.p != null && Number(f.p) >= 0 && Number(f.p) <= 100) fo.p = Number(f.p);
+          out.foods.push(fo);
+        }
       });
     }
+    if (Array.isArray(o.meals)) {
+      o.meals.slice(0, 30).forEach(function(m){
+        if (!m || typeof m.name !== "string" || !Array.isArray(m.items)) return;
+        var its = clean(m.items).map(function(it){
+          var x = {name: it.name, kcal: it.kcal};
+          if (it.p != null) x.p = it.p;
+          return x;
+        });
+        if (its.length) out.meals.push({id: String(m.id || uid()), name: m.name.slice(0, 40), meal: m.meal || "dejeuner", items: its});
+      });
+    }
+    if (o.water && typeof o.water === "object") {
+      Object.keys(o.water).forEach(function(d){
+        var n = Math.round(Number(o.water[d]));
+        if (re.test(d) && n > 0 && n <= 30) out.water[d] = n;
+      });
+    }
+    var pg = Number(o.proteinGoal); if (pg >= 30 && pg <= 400) out.proteinGoal = pg;
+    var wgl = Number(o.waterGoal); if (wgl >= 1 && wgl <= 30) out.waterGoal = wgl;
     var g = Number(o.goal); if (g >= 500 && g <= 8000) out.goal = g;
     var t = Number(o.tdee); if (t > 0) out.tdee = t;
     var p = o.profile;
@@ -1279,11 +1552,13 @@ details.more .items li{padding-left:0}
     var r = restoreReady;
     state.days = r.days; state.weights = r.weights; state.foods = r.foods;
     state.goal = r.goal; state.tdee = r.tdee; state.profile = r.profile; state.skipped = r.skipped;
+    state.meals = r.meals; state.water = r.water; state.proteinGoal = r.proteinGoal; state.waterGoal = r.waterGoal;
     saveLocal();
     $("restoreBox").value = "";
     resetRestore();
     $("dataMsg").textContent = "Données restaurées.";
     prepSetup();
+    fillTargets();
     render();
   });
 
@@ -1295,6 +1570,7 @@ details.more .items li{padding-left:0}
     loadLocal();
     state.loaded = true;
     prepSetup();
+    fillTargets();
     render();
   }
 
