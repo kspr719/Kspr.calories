@@ -223,11 +223,76 @@ input::placeholder{color:var(--muted);opacity:.8}
 .toast button{background:none;border:0;color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;padding:8px 2px;min-height:40px}
 
 @media (prefers-reduced-motion: reduce){.bar i{transition:none}}
+
+/* Profil */
+.wrap.setup-mode > :not(#setup){display:none}
+.wrap:not(.setup-mode) > #setup{display:none}
+.setuptitle{margin:0;font:800 32px/1.05 var(--font-display);font-variation-settings:"wdth" 80;text-wrap:balance}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg button{height:48px;background:var(--field);border:1.5px solid var(--rule);border-radius:2px;font-weight:600}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.setupform{display:flex;flex-direction:column;gap:14px}
+.result{border-top:3px solid var(--rule);padding-top:10px;display:flex;flex-direction:column;gap:8px}
+.result .g{font:900 64px/.9 var(--font-display);font-variation-settings:"wdth" 68;font-variant-numeric:tabular-nums}
+.result .g small{font:500 12px var(--font-data);letter-spacing:.06em;color:var(--muted);margin-left:8px}
+.result .lines{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px;font:500 13px var(--font-data);color:var(--muted)}
+.setupform .primary:disabled{opacity:.4;cursor:default}
 </style>
 
 </head>
 <body>
-<main class="wrap">
+<main class="wrap" id="app">
+
+  <section id="setup" class="sec" aria-label="Ton profil">
+    <h2 class="cap">Ton profil</h2>
+    <h1 class="setuptitle">Calcule ton objectif de calories</h1>
+    <p class="note">Ces informations restent sur ton téléphone. Elles servent seulement à estimer ta dépense par jour et ton objectif pour perdre du poids.</p>
+    <form class="setupform" id="setupForm" autocomplete="off" novalidate>
+      <div class="field">
+        <span class="cap" id="sexLabel">Sexe</span>
+        <div class="seg" role="group" aria-labelledby="sexLabel">
+          <button type="button" id="sexH" aria-pressed="true">Homme</button>
+          <button type="button" id="sexF" aria-pressed="false">Femme</button>
+        </div>
+      </div>
+      <div class="trio">
+        <div class="field"><label class="cap" for="sAge">Âge</label><input id="sAge" type="text" inputmode="numeric" placeholder="ans"></div>
+        <div class="field"><label class="cap" for="sHeight">Taille</label><input id="sHeight" type="text" inputmode="numeric" placeholder="cm"></div>
+        <div class="field"><label class="cap" for="sWeight">Poids</label><input id="sWeight" type="text" inputmode="decimal" placeholder="kg"></div>
+      </div>
+      <div class="field">
+        <label class="cap" for="sAct">Activité physique</label>
+        <select id="sAct">
+          <option value="1.2">Sédentaire : peu ou pas de sport</option>
+          <option value="1.375">Légère : 1 à 3 séances par semaine</option>
+          <option value="1.55">Modérée : 3 à 5 séances par semaine</option>
+          <option value="1.725">Élevée : 6 à 7 séances par semaine</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="cap" for="sDef">Rythme de perte</label>
+        <select id="sDef">
+          <option value="300">Doux : 300 kcal de moins par jour</option>
+          <option value="500" selected>Modéré : 500 kcal de moins par jour</option>
+          <option value="750">Soutenu : 750 kcal de moins par jour</option>
+        </select>
+      </div>
+      <div class="result" id="sResult" hidden>
+        <span class="cap">Objectif par jour</span>
+        <div class="g"><span id="sGoal">0</span><small>kcal</small></div>
+        <ul class="lines">
+          <li>Métabolisme de base : <span id="sBmr">0</span> kcal</li>
+          <li>Dépense estimée : <span id="sTdee">0</span> kcal</li>
+          <li>Déficit : <span id="sDefOut">0</span> kcal</li>
+        </ul>
+      </div>
+      <p class="note" id="sMsg" role="status"></p>
+      <button type="submit" class="primary" id="sSubmit" disabled>Valider mon objectif</button>
+      <button type="button" class="linkbtn" id="sSkip">Passer et garder 1 875 kcal</button>
+      <p class="note">Estimation indicative, ce n'est pas un avis médical. En cas de doute, demande conseil à un médecin.</p>
+    </form>
+  </section>
   <header class="top">
     <h1>Suivi calories</h1>
     <nav class="datenav" aria-label="Choisir le jour">
@@ -255,6 +320,7 @@ input::placeholder{color:var(--muted);opacity:.8}
       <button type="submit" class="primary">Enregistrer</button>
     </form>
     <p class="note" id="tdeeNote" hidden></p>
+    <button type="button" class="linkbtn" id="editProfile">Calculer mon objectif</button>
   </section>
 
   <section class="sec" aria-label="Ajouter un aliment">
@@ -332,6 +398,9 @@ input::placeholder{color:var(--muted);opacity:.8}
     goal: 1875,
     tdee: null,
     loaded: false,
+    profile: null,
+    skipped: false,
+    editing: false,
     mode: "pending",
     date: todayStr()
   };
@@ -351,7 +420,7 @@ input::placeholder{color:var(--muted);opacity:.8}
 
   /* ---------- Stockage ---------- */
   function saveLocal(){
-    try { localStorage.setItem(LS_KEY, JSON.stringify({days: state.days, goal: state.goal})); } catch (e) {}
+    try { localStorage.setItem(LS_KEY, JSON.stringify({days: state.days, goal: state.goal, tdee: state.tdee, profile: state.profile, skipped: state.skipped})); } catch (e) {}
   }
   function loadLocal(){
     try {
@@ -360,6 +429,9 @@ input::placeholder{color:var(--muted);opacity:.8}
       var v = JSON.parse(raw);
       if (v && v.days) state.days = v.days;
       if (v && v.goal) state.goal = Number(v.goal) || state.goal;
+      if (v && Number(v.tdee) > 0) state.tdee = Number(v.tdee);
+      if (v && v.profile && typeof v.profile === "object") state.profile = v.profile;
+      if (v && v.skipped) state.skipped = true;
     } catch (e) {}
   }
   function clean(items){
@@ -517,6 +589,9 @@ input::placeholder{color:var(--muted);opacity:.8}
   }
 
   function render(){
+    var showSetup = state.loaded && (state.editing || (!state.profile && !state.skipped));
+    $("app").classList.toggle("setup-mode", !!showSetup);
+    $("editProfile").textContent = state.profile ? "Modifier mon profil" : "Calculer mon objectif";
     var items = dayItems(state.date);
     var eaten = sum(items);
     var left = state.goal - eaten;
@@ -621,6 +696,110 @@ input::placeholder{color:var(--muted);opacity:.8}
     persistSettings();
   });
 
+
+  /* ---------- Profil et calcul de l'objectif ---------- */
+  var setupSex = "h";
+  var sEl = {
+    age: $("sAge"), height: $("sHeight"), weight: $("sWeight"), act: $("sAct"), def: $("sDef"),
+    res: $("sResult"), goal: $("sGoal"), bmr: $("sBmr"), tdee: $("sTdee"), defOut: $("sDefOut"),
+    msg: $("sMsg"), submit: $("sSubmit"), skip: $("sSkip"), sexH: $("sexH"), sexF: $("sexF")
+  };
+  function num(v){ return parseFloat(String(v).replace(",", ".").replace(/\s/g, "")); }
+  function r5(x){ return Math.round(x / 5) * 5; }
+  function readSetup(){
+    return {
+      sex: setupSex, age: num(sEl.age.value), height: num(sEl.height.value), weight: num(sEl.weight.value),
+      act: parseFloat(sEl.act.value), def: parseInt(sEl.def.value, 10)
+    };
+  }
+  function calc(p){
+    var bmr = 10 * p.weight + 6.25 * p.height - 5 * p.age + (p.sex === "h" ? 5 : -161);
+    var tdee = bmr * p.act;
+    var bmi = p.weight / Math.pow(p.height / 100, 2);
+    var floor = p.sex === "h" ? 1500 : 1200;
+    var goal = tdee - p.def;
+    var note = "";
+    if (bmi < 18.5) { goal = tdee; note = "bmi"; }
+    else if (goal < floor) { goal = floor; note = "floor"; }
+    return {bmr: r5(bmr), tdee: r5(tdee), goal: r5(goal), floor: floor, note: note};
+  }
+  function setSex(v){
+    setupSex = v;
+    sEl.sexH.setAttribute("aria-pressed", v === "h" ? "true" : "false");
+    sEl.sexF.setAttribute("aria-pressed", v === "f" ? "true" : "false");
+  }
+  function updateSetup(){
+    var p = readSetup();
+    sEl.msg.textContent = "";
+    sEl.res.hidden = true;
+    sEl.submit.disabled = true;
+    if (!(p.age > 0 && p.height > 0 && p.weight > 0)) {
+      sEl.msg.textContent = "Remplis ton âge, ta taille et ton poids pour voir ton objectif.";
+      return null;
+    }
+    if (p.age < 18) {
+      sEl.msg.textContent = "Le calcul d'un déficit est prévu pour les adultes. Avant 18 ans, demande conseil à un médecin.";
+      return null;
+    }
+    if (p.age > 90 || p.height < 120 || p.height > 230 || p.weight < 30 || p.weight > 300) {
+      sEl.msg.textContent = "Vérifie les valeurs : âge de 18 à 90 ans, taille de 120 à 230 cm, poids de 30 à 300 kg.";
+      return null;
+    }
+    var r = calc(p);
+    sEl.goal.textContent = nf(r.goal);
+    sEl.bmr.textContent = nf(r.bmr);
+    sEl.tdee.textContent = nf(r.tdee);
+    sEl.defOut.textContent = nf(Math.max(r.tdee - r.goal, 0));
+    sEl.res.hidden = false;
+    sEl.submit.disabled = false;
+    if (r.note === "bmi") sEl.msg.textContent = "Ton IMC est inférieur à 18,5 : l'app ne propose pas de déficit, l'objectif correspond à ta dépense estimée.";
+    else if (r.note === "floor") sEl.msg.textContent = "L'objectif est limité à " + nf(r.floor) + " kcal, un minimum à ne pas descendre sous.";
+    return {p: p, r: r};
+  }
+  function prepSetup(){
+    var pr = state.profile;
+    setSex(pr && pr.sex === "f" ? "f" : "h");
+    sEl.age.value = pr && pr.age ? String(pr.age) : "";
+    sEl.height.value = pr && pr.height ? String(pr.height) : "";
+    sEl.weight.value = pr && pr.weight ? String(pr.weight).replace(".", ",") : "";
+    sEl.act.value = pr && pr.act ? String(pr.act) : "1.2";
+    sEl.def.value = pr && pr.def ? String(pr.def) : "500";
+    sEl.skip.textContent = state.profile ? "Annuler" : "Passer et garder " + nf(state.goal) + " kcal";
+    updateSetup();
+  }
+  sEl.sexH.addEventListener("click", function(){ setSex("h"); updateSetup(); });
+  sEl.sexF.addEventListener("click", function(){ setSex("f"); updateSetup(); });
+  ["input", "change"].forEach(function(ev){
+    [sEl.age, sEl.height, sEl.weight, sEl.act, sEl.def].forEach(function(f){ f.addEventListener(ev, updateSetup); });
+  });
+  $("setupForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var out = updateSetup();
+    if (!out) return;
+    state.profile = {sex: out.p.sex, age: out.p.age, height: out.p.height, weight: out.p.weight, act: out.p.act, def: out.p.def};
+    state.goal = out.r.goal;
+    state.tdee = out.r.tdee;
+    state.editing = false;
+    state.skipped = false;
+    persistSettings();
+    render();
+    window.scrollTo(0, 0);
+    toast("Objectif réglé à " + nf(out.r.goal) + " kcal par jour.");
+  });
+  sEl.skip.addEventListener("click", function(){
+    state.editing = false;
+    if (!state.profile) state.skipped = true;
+    persistSettings();
+    render();
+    window.scrollTo(0, 0);
+  });
+  $("editProfile").addEventListener("click", function(){
+    prepSetup();
+    state.editing = true;
+    render();
+    window.scrollTo(0, 0);
+  });
+
   /* ---------- Démarrage ---------- */
   render();
 
@@ -628,6 +807,7 @@ input::placeholder{color:var(--muted);opacity:.8}
     state.mode = "local";
     loadLocal();
     state.loaded = true;
+    prepSetup();
     render();
   }
 
