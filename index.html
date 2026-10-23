@@ -232,6 +232,53 @@ select{appearance:none;-webkit-appearance:none;
 .setupform .primary:disabled{opacity:.35;cursor:default;box-shadow:none}
 
 @media (prefers-reduced-motion: reduce){.bar i{transition:none}}
+
+/* Aliments, poids, sauvegarde */
+.full{grid-column:1 / -1}
+.suggest{display:flex;flex-wrap:wrap;gap:8px}
+.chip.perso{border-color:var(--accent-b)}
+.hint{margin:0;color:var(--accent);font:500 13px/1.4 var(--font-body)}
+.remember{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--fg)}
+.remember input{width:20px;height:20px;min-width:20px;padding:0;accent-color:var(--accent-a)}
+.ghost{
+  min-height:48px;padding:0 16px;
+  background:var(--surface);color:var(--fg);
+  border:1px solid var(--line);border-radius:14px;
+  font:600 14px/1 var(--font-body);
+}
+.btnrow{display:flex;flex-wrap:wrap;gap:10px}
+textarea{
+  width:100%;min-width:0;padding:12px 14px;
+  background:var(--field);color:var(--fg);
+  border:1px solid var(--line);border-radius:14px;
+  font:13px/1.4 var(--font-data);resize:vertical;
+}
+textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px rgba(167,139,250,.25)}
+details.more{background:var(--surface);border:1px solid var(--hair);border-radius:16px}
+details.more > summary{padding:14px 16px;font-weight:600;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+details.more > summary::-webkit-details-marker{display:none}
+details.more > summary::after{content:"+";color:var(--accent);font:400 20px/1 var(--font-body)}
+details.more[open] > summary::after{content:"–"}
+details.more > :not(summary){margin:0 16px 16px}
+details.more .items{background:none;border:0;border-radius:0}
+details.more .items li{padding-left:0}
+.stack{display:flex;flex-direction:column;gap:12px}
+
+.wtop{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.wnow{font:300 52px/1 var(--font-display);letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.wnow small{font:500 12px var(--font-data);letter-spacing:.08em;color:var(--muted);margin-left:8px}
+#wChart svg{width:100%;height:auto;display:block}
+.w-grid{stroke:var(--hair);stroke-width:1}
+.w-axis{fill:var(--muted);font:10px var(--font-data)}
+.w-line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.w-area{fill:url(#wg)}
+.w-dot{fill:var(--accent)}
+.w-last{fill:var(--accent);stroke:var(--bg);stroke-width:3}
+.w-val{fill:var(--fg);font:600 12px var(--font-display)}
+.w-s1{stop-color:var(--accent);stop-opacity:.35}
+.w-s2{stop-color:var(--accent);stop-opacity:0}
+.wform{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+.wform .primary{grid-column:auto;padding:0 22px}
 </style>
 
 </head>
@@ -322,13 +369,19 @@ select{appearance:none;-webkit-appearance:none;
     <form class="addform" id="addForm" autocomplete="off">
       <div class="field full">
         <label class="cap" for="fName">Aliment</label>
-        <input id="fName" type="text" maxlength="80" placeholder="ex. Riz basmati, 150 g">
+        <input id="fName" type="text" maxlength="80" placeholder="ex. riz cuit, poulet, banane" enterkeyhint="next">
+      </div>
+      <div class="suggest full" id="suggest" hidden></div>
+      <p class="hint full" id="foodHint" hidden></p>
+      <div class="field">
+        <label class="cap" for="fGrams">Grammes</label>
+        <input id="fGrams" type="text" inputmode="decimal" placeholder="150">
       </div>
       <div class="field">
         <label class="cap" for="fKcal">Calories</label>
         <input id="fKcal" type="text" inputmode="decimal" placeholder="130 ou 100+30">
       </div>
-      <div class="field">
+      <div class="field full">
         <label class="cap" for="fMeal">Repas</label>
         <select id="fMeal">
           <option value="petit-dej">Petit-déjeuner</option>
@@ -337,6 +390,7 @@ select{appearance:none;-webkit-appearance:none;
           <option value="diner">Dîner</option>
         </select>
       </div>
+      <label class="remember full" id="rememberRow" hidden><input type="checkbox" id="fRemember"> Mémoriser cet aliment, calories pour 100 g</label>
       <p class="msg" id="formMsg" role="alert"></p>
       <button type="submit" class="primary">Ajouter</button>
     </form>
@@ -355,6 +409,52 @@ select{appearance:none;-webkit-appearance:none;
   <section class="sec" aria-label="Les 7 derniers jours">
     <h2 class="cap">7 derniers jours · trait pointillé = objectif</h2>
     <div class="bars" id="weekBars"></div>
+  </section>
+
+  
+  <section class="sec" aria-label="Poids">
+    <h2 class="cap">Poids</h2>
+    <div class="wtop">
+      <div class="wnow"><span id="wNow">–</span><small>kg</small></div>
+      <div class="cap" id="wChange"></div>
+    </div>
+    <div id="wChart"></div>
+    <form class="wform" id="wForm" autocomplete="off">
+      <div class="field">
+        <label class="cap" for="wInput" id="wLabel">Poids du jour</label>
+        <input id="wInput" type="text" inputmode="decimal" placeholder="ex. 94,5">
+      </div>
+      <button type="submit" class="primary" id="wBtn">Enregistrer</button>
+    </form>
+    <p class="msg" id="wMsg" role="alert"></p>
+    <details class="more">
+      <summary>Historique des pesées</summary>
+      <ul class="items" id="wList"></ul>
+      <p class="note" id="wListEmpty">Aucune pesée pour l'instant.</p>
+    </details>
+  </section>
+
+  <section class="sec" aria-label="Aliments et sauvegarde">
+    <h2 class="cap">Mes aliments et mes données</h2>
+    <details class="more">
+      <summary>Mes aliments, calories pour 100 g</summary>
+      <ul class="items" id="foodsList"></ul>
+      <p class="note" id="foodsEmpty">Aucun aliment mémorisé. Entre un aliment avec ses grammes et ses calories, puis coche « Mémoriser cet aliment ».</p>
+    </details>
+    <details class="more">
+      <summary>Sauvegarde de mes données</summary>
+      <p class="note">Tes données sont seulement sur cet appareil. Copie-les de temps en temps et colle-les dans une note pour les garder.</p>
+      <div class="btnrow">
+        <button type="button" class="ghost" id="copyBtn">Copier mes données</button>
+        <button type="button" class="ghost" id="shareBtn" hidden>Partager</button>
+      </div>
+      <div class="stack">
+        <label class="cap" for="restoreBox">Restaurer une sauvegarde</label>
+        <textarea id="restoreBox" rows="4" placeholder="Colle ici le texte que tu as copié"></textarea>
+        <button type="button" class="ghost" id="restoreBtn">Restaurer</button>
+      </div>
+      <p class="note" id="dataMsg" role="status"></p>
+    </details>
   </section>
 
   <p class="foot" id="footNote">Les calories des aliments sont des estimations.</p>
@@ -395,6 +495,8 @@ select{appearance:none;-webkit-appearance:none;
     profile: null,
     skipped: false,
     editing: false,
+    weights: {},
+    foods: [],
     mode: "pending",
     date: todayStr()
   };
@@ -414,7 +516,7 @@ select{appearance:none;-webkit-appearance:none;
 
   /* ---------- Stockage ---------- */
   function saveLocal(){
-    try { localStorage.setItem(LS_KEY, JSON.stringify({days: state.days, goal: state.goal, tdee: state.tdee, profile: state.profile, skipped: state.skipped})); } catch (e) {}
+    try { localStorage.setItem(LS_KEY, JSON.stringify({days: state.days, goal: state.goal, tdee: state.tdee, profile: state.profile, skipped: state.skipped, weights: state.weights, foods: state.foods})); } catch (e) {}
   }
   function loadLocal(){
     try {
@@ -426,6 +528,9 @@ select{appearance:none;-webkit-appearance:none;
       if (v && Number(v.tdee) > 0) state.tdee = Number(v.tdee);
       if (v && v.profile && typeof v.profile === "object") state.profile = v.profile;
       if (v && v.skipped) state.skipped = true;
+      if (v && v.weights && typeof v.weights === "object") state.weights = v.weights;
+      if (v && Array.isArray(v.foods)) state.foods = v.foods;
+      if (state.profile && Number(state.profile.weight) > 0 && !Object.keys(state.weights).length) state.weights[todayStr()] = Number(state.profile.weight);
     } catch (e) {}
   }
   function clean(items){
@@ -543,6 +648,7 @@ select{appearance:none;-webkit-appearance:none;
       b.appendChild(node("b", null, nf(it.kcal)));
       b.addEventListener("click", function(){
         el.fName.value = it.name;
+        clearFood();
         el.fKcal.value = String(it.kcal);
         el.formMsg.textContent = "";
         el.fKcal.focus();
@@ -621,6 +727,8 @@ select{appearance:none;-webkit-appearance:none;
     renderLog(items);
     renderRecents();
     renderWeek();
+    renderWeight();
+    renderFoodsList();
   }
 
   /* ---------- Actions ---------- */
@@ -638,10 +746,20 @@ select{appearance:none;-webkit-appearance:none;
       el.fKcal.focus();
       return;
     }
+    var gRaw = $("fGrams").value.trim();
+    var g = num(gRaw);
+    if (gRaw && !(g > 0 && g <= 5000)) {
+      el.formMsg.textContent = "Entre les grammes en chiffres, par exemple 150.";
+      $("fGrams").focus();
+      return;
+    }
     el.formMsg.textContent = "";
+    var base = (el.fName.value.trim() || "Aliment").slice(0, 60);
+    var nm = g > 0 ? base + ", " + String(Math.round(g * 10) / 10).replace(".", ",") + " g" : base;
+    if (g > 0 && !foodSel && $("fRemember").checked && el.fName.value.trim()) saveFood(el.fName.value.trim(), k / g * 100);
     var item = {
       id: uid(),
-      name: (el.fName.value.trim() || "Aliment").slice(0, 80),
+      name: nm,
       kcal: k,
       meal: el.fMeal.value,
       t: Date.now()
@@ -649,6 +767,7 @@ select{appearance:none;-webkit-appearance:none;
     commitDay(state.date, dayItems(state.date).concat([item]));
     el.fName.value = "";
     el.fKcal.value = "";
+    clearFood();
     el.fName.focus();
   });
 
@@ -775,6 +894,7 @@ select{appearance:none;-webkit-appearance:none;
     state.tdee = out.r.tdee;
     state.editing = false;
     state.skipped = false;
+    state.weights[todayStr()] = out.p.weight;
     persistSettings();
     render();
     window.scrollTo(0, 0);
@@ -792,6 +912,379 @@ select{appearance:none;-webkit-appearance:none;
     state.editing = true;
     render();
     window.scrollTo(0, 0);
+  });
+
+
+  /* ---------- Aliments : calcul par grammes ---------- */
+  // Calories pour 100 g, valeurs moyennes indicatives (aliments cuits quand c'est précisé).
+  var FOODS = [
+    ["Blanc de poulet cru",110],["Blanc de poulet cuit",165],["Cuisse de poulet cuite, sans peau",200],
+    ["Dinde cuite",140],["Steak haché 5 % cuit",170],["Steak haché 15 % cuit",250],["Bœuf, steak cuit",220],
+    ["Jambon blanc",110],["Saumon cuit",210],["Thon au naturel",115],["Cabillaud cuit",105],["Crevettes cuites",100],
+    ["Œuf entier",145],
+    ["Riz blanc cuit",130],["Riz complet cuit",125],["Pâtes cuites",150],["Semoule cuite",120],["Quinoa cuit",120],
+    ["Pommes de terre cuites",85],["Patate douce cuite",90],["Frites",300],["Lentilles cuites",115],
+    ["Pois chiches cuits",165],["Haricots rouges cuits",125],["Flocons d'avoine",370],["Céréales du petit-déjeuner",375],
+    ["Pain baguette",280],["Pain complet",250],
+    ["Brocoli cuit",35],["Haricots verts cuits",30],["Carotte crue",40],["Tomate",18],["Concombre",12],
+    ["Salade verte",15],["Courgette cuite",20],["Champignons",25],["Épinards cuits",25],["Oignon",40],["Avocat",160],
+    ["Banane",90],["Pomme",55],["Orange",45],["Fraises",32],["Raisin",70],["Mangue",60],["Ananas",50],
+    ["Litchi",66],["Papaye",43],["Pastèque",30],
+    ["Lait demi-écrémé",46],["Yaourt nature",55],["Fromage blanc 0 %",45],["Skyr nature",60],
+    ["Emmental",380],["Mozzarella",250],["Beurre",745],["Crème fraîche épaisse",300],
+    ["Huile d'olive",900],["Mayonnaise",700],["Ketchup",110],["Miel",305],["Sucre",400],
+    ["Beurre de cacahuète",600],["Amandes",600],["Noix de cajou",580],
+    ["Chocolat noir",560],["Chocolat au lait",535],["Pâte à tartiner",540],["Biscuits secs",450],["Chips",540],
+    ["Pizza",250],["Poudre de protéines (whey)",400],["Coca-Cola",42],["Jus d'orange",45]
+  ];
+  var foodSel = null;
+  var fEl = {
+    name: $("fName"), grams: $("fGrams"), kcal: $("fKcal"), suggest: $("suggest"), hint: $("foodHint"),
+    remRow: $("rememberRow"), rem: $("fRemember")
+  };
+  function norm(t){
+    return String(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+  }
+  var dbFoods = FOODS.map(function(f){ return {n: f[0], k: f[1], nn: norm(f[0]), own: false}; });
+  function allFoods(){
+    var own = state.foods.map(function(f){ return {n: f.n, k: f.k, nn: norm(f.n), own: true}; });
+    return own.concat(dbFoods);
+  }
+  function searchFoods(q){
+    var words = norm(q).split(" ").filter(Boolean);
+    if (!words.length) return [];
+    var res = allFoods().filter(function(f){
+      return words.every(function(w){ return f.nn.indexOf(w) > -1; });
+    });
+    res.sort(function(a, b){
+      if (a.own !== b.own) return a.own ? -1 : 1;
+      var sa = a.nn.indexOf(words[0]) === 0 ? 0 : 1;
+      var sb = b.nn.indexOf(words[0]) === 0 ? 0 : 1;
+      if (sa !== sb) return sa - sb;
+      return a.n.length - b.n.length;
+    });
+    return res.slice(0, 6);
+  }
+  function showSuggest(){
+    var q = fEl.name.value;
+    fEl.suggest.textContent = "";
+    var list = foodSel || q.trim().length < 2 ? [] : searchFoods(q);
+    fEl.suggest.hidden = list.length === 0;
+    list.forEach(function(f){
+      var b = node("button", "chip" + (f.own ? " perso" : ""), f.n);
+      b.type = "button";
+      b.appendChild(node("b", null, nf(f.k) + " /100 g"));
+      b.addEventListener("click", function(){ pickFood(f); });
+      fEl.suggest.appendChild(b);
+    });
+  }
+  function setHint(){
+    fEl.hint.hidden = !foodSel;
+    fEl.hint.textContent = foodSel ? nf(foodSel.k) + " kcal pour 100 g. Entre les grammes pour calculer." : "";
+  }
+  function pickFood(f){
+    foodSel = f;
+    fEl.name.value = f.n;
+    setHint();
+    showSuggest();
+    calcFromGrams();
+    updateRemember();
+    fEl.grams.focus();
+  }
+  function calcFromGrams(){
+    var g = num(fEl.grams.value);
+    if (foodSel && g > 0) fEl.kcal.value = String(Math.round(g * foodSel.k / 100));
+  }
+  function exactMatch(){
+    var q = norm(fEl.name.value);
+    if (!q) return null;
+    var all = allFoods();
+    for (var i = 0; i < all.length; i++) if (all[i].nn === q) return all[i];
+    return null;
+  }
+  function updateRemember(){
+    var g = num(fEl.grams.value), k = parseKcal(fEl.kcal.value);
+    var ok = !foodSel && g > 0 && k > 0 && fEl.name.value.trim().length > 0;
+    fEl.remRow.hidden = !ok;
+    if (!ok) fEl.rem.checked = false;
+  }
+  function clearFood(){
+    foodSel = null;
+    fEl.grams.value = "";
+    fEl.suggest.textContent = "";
+    fEl.suggest.hidden = true;
+    setHint();
+    fEl.remRow.hidden = true;
+    fEl.rem.checked = false;
+  }
+  fEl.name.addEventListener("input", function(){
+    if (foodSel && norm(fEl.name.value) !== norm(foodSel.n)) { foodSel = null; setHint(); }
+    showSuggest();
+    updateRemember();
+  });
+  fEl.grams.addEventListener("input", function(){
+    if (!foodSel) { var m = exactMatch(); if (m) { foodSel = m; setHint(); showSuggest(); } }
+    calcFromGrams();
+    updateRemember();
+  });
+  fEl.kcal.addEventListener("input", updateRemember);
+
+  function saveFood(name, k100){
+    var key = norm(name);
+    var k = Math.round(k100);
+    if (!key || !(k > 0 && k < 1000)) return;
+    var found = false;
+    state.foods.forEach(function(f){ if (norm(f.n) === key) { f.k = k; found = true; } });
+    if (!found) state.foods.unshift({n: name.slice(0, 60), k: k});
+    state.foods = state.foods.slice(0, 100);
+    persistSettings();
+    renderFoodsList();
+    toast("« " + name.slice(0, 40) + " » mémorisé : " + nf(k) + " kcal pour 100 g.");
+  }
+  function renderFoodsList(){
+    var ul = $("foodsList");
+    ul.textContent = "";
+    ul.hidden = state.foods.length === 0;
+    $("foodsEmpty").hidden = state.foods.length > 0;
+    state.foods.forEach(function(f, i){
+      var li = node("li");
+      li.appendChild(node("span", "nm", f.n));
+      li.appendChild(node("span", "num", nf(f.k) + " /100 g"));
+      var b = node("button", "del", "×");
+      b.type = "button";
+      b.setAttribute("aria-label", "Supprimer " + f.n);
+      b.addEventListener("click", function(){
+        state.foods.splice(i, 1);
+        persistSettings();
+        renderFoodsList();
+        showSuggest();
+      });
+      li.appendChild(b);
+      ul.appendChild(li);
+    });
+  }
+
+  /* ---------- Poids ---------- */
+  var SVGNS = "http://www.w3.org/2000/svg";
+  function svgEl(name, attrs){
+    var n = document.createElementNS(SVGNS, name);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+  function fk(x){ return (Math.round(x * 10) / 10).toFixed(1).replace(".", ","); }
+  function lab(v){ return String(Math.round(v * 10) / 10).replace(".", ","); }
+  function shortDate(d){ var p = d.split("-"); return p[2] + "/" + p[1]; }
+  function longDate(d){
+    return new Intl.DateTimeFormat("fr-FR", {weekday: "long", day: "numeric", month: "long"}).format(parseDate(d));
+  }
+
+  function drawChart(dates){
+    var box = $("wChart");
+    box.textContent = "";
+    var W = 340, H = 176, L = 38, R = 14, T = 20, B = 26;
+    var vals = dates.map(function(d){ return state.weights[d]; });
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var pad = Math.max(1, (hi - lo) * 0.25);
+    var min = Math.floor((lo - pad) * 2) / 2, max = Math.ceil((hi + pad) * 2) / 2;
+    if (max - min < 2) max = min + 2;
+    var t0 = parseDate(dates[0]).getTime();
+    var t1 = parseDate(dates[dates.length - 1]).getTime();
+    var span = Math.max(t1 - t0, 1);
+    function X(d){ return L + (parseDate(d).getTime() - t0) / span * (W - L - R); }
+    function Y(v){ return T + (max - v) / (max - min) * (H - T - B); }
+
+    var svg = svgEl("svg", {
+      viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": "Courbe de poids, de " + fk(vals[0]) + " à " + fk(vals[vals.length - 1]) + " kilos"
+    });
+    var defs = svgEl("defs", {});
+    var gr = svgEl("linearGradient", {id: "wg", x1: "0", y1: "0", x2: "0", y2: "1"});
+    gr.appendChild(svgEl("stop", {offset: "0", "class": "w-s1"}));
+    gr.appendChild(svgEl("stop", {offset: "1", "class": "w-s2"}));
+    defs.appendChild(gr);
+    svg.appendChild(defs);
+
+    [min, (min + max) / 2, max].forEach(function(v){
+      var y = Y(v);
+      svg.appendChild(svgEl("line", {x1: L, x2: W - R, y1: y, y2: y, "class": "w-grid"}));
+      var t = svgEl("text", {x: L - 6, y: y + 3.5, "text-anchor": "end", "class": "w-axis"});
+      t.textContent = lab(v);
+      svg.appendChild(t);
+    });
+
+    var pts = dates.map(function(d){ return [X(d), Y(state.weights[d])]; });
+    var line = pts.map(function(p, i){ return (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1); }).join(" ");
+    svg.appendChild(svgEl("path", {d: line + " L" + pts[pts.length - 1][0].toFixed(1) + " " + (H - B) + " L" + pts[0][0].toFixed(1) + " " + (H - B) + " Z", "class": "w-area"}));
+    svg.appendChild(svgEl("path", {d: line, "class": "w-line"}));
+    if (pts.length <= 20) pts.slice(0, -1).forEach(function(p){ svg.appendChild(svgEl("circle", {cx: p[0], cy: p[1], r: 3, "class": "w-dot"})); });
+    var lp = pts[pts.length - 1];
+    svg.appendChild(svgEl("circle", {cx: lp[0], cy: lp[1], r: 5, "class": "w-last"}));
+    var tv = svgEl("text", {x: lp[0], y: lp[1] - 11, "text-anchor": "end", "class": "w-val"});
+    tv.textContent = fk(vals[vals.length - 1]);
+    svg.appendChild(tv);
+
+    var xa = svgEl("text", {x: L, y: H - 7, "text-anchor": "start", "class": "w-axis"});
+    xa.textContent = shortDate(dates[0]);
+    svg.appendChild(xa);
+    var xb = svgEl("text", {x: W - R, y: H - 7, "text-anchor": "end", "class": "w-axis"});
+    xb.textContent = shortDate(dates[dates.length - 1]);
+    svg.appendChild(xb);
+    box.appendChild(svg);
+  }
+
+  function renderWeight(){
+    var dates = Object.keys(state.weights).sort();
+    var chart = $("wChart");
+    var has = !!state.weights[state.date];
+    $("wLabel").textContent = "Poids du " + longDate(state.date);
+    $("wInput").placeholder = has ? fk(state.weights[state.date]) : "ex. 94,5";
+    $("wBtn").textContent = has ? "Mettre à jour" : "Enregistrer";
+
+    if (!dates.length) {
+      $("wNow").textContent = "–";
+      $("wChange").textContent = "";
+      chart.textContent = "";
+      chart.appendChild(node("p", "empty", "Note ton poids pour voir ta courbe."));
+    } else {
+      var first = state.weights[dates[0]];
+      var last = state.weights[dates[dates.length - 1]];
+      $("wNow").textContent = fk(last);
+      if (dates.length > 1) {
+        var d = Math.round((last - first) * 10) / 10;
+        $("wChange").textContent = (d <= 0 ? "−" : "+") + fk(Math.abs(d)) + " kg depuis le " + shortDate(dates[0]);
+        drawChart(dates.slice(-60));
+      } else {
+        $("wChange").textContent = "Première pesée";
+        chart.textContent = "";
+        chart.appendChild(node("p", "empty", "Ajoute une autre pesée dans quelques jours pour voir la courbe."));
+      }
+    }
+
+    var ul = $("wList");
+    ul.textContent = "";
+    ul.hidden = dates.length === 0;
+    $("wListEmpty").hidden = dates.length > 0;
+    dates.slice().reverse().forEach(function(d){
+      var li = node("li");
+      li.appendChild(node("span", "nm", longDate(d)));
+      li.appendChild(node("span", "num", fk(state.weights[d]) + " kg"));
+      var b = node("button", "del", "×");
+      b.type = "button";
+      b.setAttribute("aria-label", "Supprimer la pesée du " + longDate(d));
+      b.addEventListener("click", function(){
+        delete state.weights[d];
+        persistSettings();
+        renderWeight();
+      });
+      li.appendChild(b);
+      ul.appendChild(li);
+    });
+  }
+
+  $("wForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var v = num($("wInput").value);
+    if (!(v >= 30 && v <= 300)) {
+      $("wMsg").textContent = "Entre ton poids en kilos, par exemple 94,5.";
+      $("wInput").focus();
+      return;
+    }
+    $("wMsg").textContent = "";
+    v = Math.round(v * 10) / 10;
+    state.weights[state.date] = v;
+    var dates = Object.keys(state.weights).sort();
+    var msg = "Poids enregistré.";
+    if (state.profile && state.date === dates[dates.length - 1]) {
+      state.profile.weight = v;
+      var r = calc(state.profile);
+      if (r.goal !== state.goal) msg = "Poids enregistré. Objectif recalculé : " + nf(r.goal) + " kcal.";
+      state.goal = r.goal;
+      state.tdee = r.tdee;
+    }
+    $("wInput").value = "";
+    persistSettings();
+    render();
+    toast(msg);
+  });
+
+  /* ---------- Sauvegarde ---------- */
+  function snapshot(){
+    return JSON.stringify({
+      app: "suivi-calories", v: 3, saved: new Date().toISOString(),
+      days: state.days, goal: state.goal, tdee: state.tdee, profile: state.profile,
+      skipped: state.skipped, weights: state.weights, foods: state.foods
+    });
+  }
+  function sanitize(o){
+    if (!o || o.app !== "suivi-calories" || !o.days || typeof o.days !== "object") return null;
+    var out = {days: {}, weights: {}, foods: [], goal: 1875, tdee: null, profile: null, skipped: !!o.skipped};
+    var re = /^\d{4}-\d{2}-\d{2}$/;
+    Object.keys(o.days).forEach(function(d){
+      if (re.test(d)) { var it = clean(o.days[d]); if (it.length) out.days[d] = it; }
+    });
+    if (o.weights && typeof o.weights === "object") {
+      Object.keys(o.weights).forEach(function(d){
+        var v = Number(o.weights[d]);
+        if (re.test(d) && v >= 30 && v <= 300) out.weights[d] = Math.round(v * 10) / 10;
+      });
+    }
+    if (Array.isArray(o.foods)) {
+      o.foods.slice(0, 100).forEach(function(f){
+        if (f && typeof f.n === "string" && Number(f.k) > 0 && Number(f.k) < 1000) out.foods.push({n: f.n.slice(0, 60), k: Math.round(Number(f.k))});
+      });
+    }
+    var g = Number(o.goal); if (g >= 500 && g <= 8000) out.goal = g;
+    var t = Number(o.tdee); if (t > 0) out.tdee = t;
+    var p = o.profile;
+    if (p && (p.sex === "h" || p.sex === "f") && Number(p.age) >= 18 && Number(p.height) > 0 && Number(p.weight) > 0) {
+      out.profile = {sex: p.sex, age: Number(p.age), height: Number(p.height), weight: Number(p.weight), act: Number(p.act) || 1.2, def: Number(p.def) || 500};
+    }
+    return out;
+  }
+  var restoreReady = null;
+  function resetRestore(){
+    restoreReady = null;
+    $("restoreBtn").textContent = "Restaurer";
+  }
+  $("restoreBox").addEventListener("input", function(){ resetRestore(); $("dataMsg").textContent = ""; });
+  $("copyBtn").addEventListener("click", function(){
+    var txt = snapshot();
+    function manual(){
+      $("restoreBox").value = txt;
+      $("restoreBox").focus();
+      $("restoreBox").select();
+      $("dataMsg").textContent = "La copie automatique n'est pas possible ici. Le texte est sélectionné dans la case ci-dessous : copie-le à la main.";
+    }
+    try {
+      navigator.clipboard.writeText(txt).then(function(){
+        $("dataMsg").textContent = "Copié. Colle-le dans une note pour le garder.";
+      }, manual);
+    } catch (e) { manual(); }
+  });
+  if (navigator.share) $("shareBtn").hidden = false;
+  $("shareBtn").addEventListener("click", function(){
+    try { navigator.share({title: "Sauvegarde Suivi calories", text: snapshot()}).catch(function(){}); } catch (e) {}
+  });
+  $("restoreBtn").addEventListener("click", function(){
+    var txt = $("restoreBox").value.trim();
+    if (!restoreReady) {
+      var o = null;
+      try { o = sanitize(JSON.parse(txt)); } catch (e) { o = null; }
+      if (!o) { $("dataMsg").textContent = "Ce texte n'est pas une sauvegarde valide. Colle le texte copié avec « Copier mes données »."; return; }
+      restoreReady = o;
+      $("restoreBtn").textContent = "Confirmer le remplacement";
+      $("dataMsg").textContent = "Sauvegarde reconnue : " + Object.keys(o.days).length + " jour(s) de repas et " + Object.keys(o.weights).length + " pesée(s). Appuie sur « Confirmer » pour remplacer tes données actuelles.";
+      return;
+    }
+    var r = restoreReady;
+    state.days = r.days; state.weights = r.weights; state.foods = r.foods;
+    state.goal = r.goal; state.tdee = r.tdee; state.profile = r.profile; state.skipped = r.skipped;
+    saveLocal();
+    $("restoreBox").value = "";
+    resetRestore();
+    $("dataMsg").textContent = "Données restaurées.";
+    prepSetup();
+    render();
   });
 
   /* ---------- Démarrage ---------- */
