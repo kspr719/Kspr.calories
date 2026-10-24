@@ -308,9 +308,9 @@ details.more .items li{padding-left:0}
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .scanhead{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .scanhead h2{margin:0;font:600 18px/1.2 var(--font-display)}
-.scanview{position:relative;border-radius:20px;overflow:hidden;background:#000;aspect-ratio:4 / 3;max-width:100%;border:1px solid var(--line)}
+.scanview{position:relative;border-radius:20px;overflow:hidden;background:#000;aspect-ratio:1 / 1;max-width:100%;border:1px solid var(--line)}
 .scanview video{width:100%;height:100%;object-fit:cover;display:block}
-.reticle{position:absolute;inset:24% 9%;border:2px solid var(--accent);border-radius:14px;box-shadow:0 0 0 999px rgba(0,0,0,.4)}
+.reticle{position:absolute;inset:16% 8% 32% 8%;border:2px solid var(--accent);border-radius:14px;box-shadow:0 0 0 999px rgba(0,0,0,.4)}
 .scanmanual{display:grid;grid-template-columns:1fr auto;gap:8px}
 .scanres{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .pname{font:600 20px/1.25 var(--font-display);text-wrap:balance;overflow-wrap:anywhere}
@@ -324,6 +324,12 @@ details.more .items li{padding-left:0}
 .tag.bad{border-color:var(--warn);color:var(--warn)}
 .tag.good{border-color:var(--accent);color:var(--accent)}
 .addrow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.shutter{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:68px;height:68px;border-radius:50%;
+  border:4px solid #fff;background:var(--accent-a);box-shadow:inset 0 0 0 5px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.5);padding:0}
+.shutter:active{background:var(--accent-b)}
+.shutter:disabled{opacity:.45}
+.scanview.flash::after{content:"";position:absolute;inset:0;background:#fff;opacity:.55;pointer-events:none}
 </style>
 
 </head>
@@ -560,6 +566,7 @@ details.more .items li{padding-left:0}
     <div class="scanview" id="scanView">
       <video id="scanVideo" playsinline muted autoplay></video>
       <div class="reticle" aria-hidden="true"></div>
+      <button type="button" class="shutter" id="scanShot" aria-label="Prendre la photo" hidden></button>
     </div>
     <p class="note" id="scanStatus" role="status"></p>
     <button type="button" class="linkbtn" id="scanRetry" hidden>Scanner à nouveau</button>
@@ -1583,6 +1590,8 @@ details.more .items li{padding-left:0}
   function startCamera(){
     sc.retry.hidden = true;
     sc.view.hidden = false;
+    $("scanShot").hidden = true;
+    $("scanShot").disabled = false;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       sc.view.hidden = true;
       setStatus("La caméra n'est pas disponible ici. Tape le code-barres ci-dessous.");
@@ -1591,24 +1600,75 @@ details.more .items li{padding-left:0}
     scan.running = true;
     scan.busy = false;
     setStatus("Démarrage de la caméra…");
-    loadZX().then(function(){
-      if (!scan.running) return null;
-      var hints = new Map();
-      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E]);
-      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-      var reader = new ZXing.BrowserMultiFormatReader(hints, 250);
-      scan.reader = reader;
-      return reader.decodeFromConstraints({video: {facingMode: {ideal: "environment"}}, audio: false}, sc.video, function(result){
-        if (result && scan.running && !scan.busy) { scan.busy = true; handleCode(String(result.getText())); }
-      }).then(function(){ if (scan.running) setStatus("Place le code-barres dans le cadre, bien éclairé."); });
+    loadZX().catch(function(){});
+    navigator.mediaDevices.getUserMedia({video: {facingMode: {ideal: "environment"}, width: {ideal: 1920}, height: {ideal: 1080}}, audio: false}).then(function(stream){
+      if (!scan.running) { stream.getTracks().forEach(function(t){ t.stop(); }); return; }
+      sc.video.srcObject = stream;
+      var pl = sc.video.play();
+      if (pl && pl.catch) pl.catch(function(){});
+      $("scanShot").hidden = false;
+      setStatus("Cadre le code-barres, attends que l'image soit nette, puis appuie sur le bouton.");
     }).catch(function(err){
       if (!scan.running) return;
       stopCamera();
       sc.view.hidden = true;
       if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) setStatus("L'accès à la caméra est refusé. Autorise-le dans les réglages de Safari, ou tape le code-barres ci-dessous.");
-      else if (err && err.message === "zxing") setStatus("Le lecteur de code-barres n'a pas pu se charger. Vérifie ta connexion, ou tape le code-barres ci-dessous.");
       else setStatus("La caméra ne démarre pas. Tape le code-barres ci-dessous.");
       sc.retry.hidden = false;
+    });
+  }
+
+  // Extrait une image de la vidéo : largeur maximale, zone (fractions x, y, l, h) et rotation éventuelle.
+  function grab(v, maxW, crop, rot){
+    var sw = v.videoWidth, sh = v.videoHeight, sx = 0, sy = 0;
+    if (crop) {
+      sx = Math.round(v.videoWidth * crop[0]);
+      sy = Math.round(v.videoHeight * crop[1]);
+      sw = Math.round(v.videoWidth * crop[2]);
+      sh = Math.round(v.videoHeight * crop[3]);
+    }
+    var ratio = Math.min(1, maxW / sw);
+    var cw = Math.max(1, Math.round(sw * ratio));
+    var ch = Math.max(1, Math.round(sh * ratio));
+    var cv = document.createElement("canvas");
+    var cx = cv.getContext("2d");
+    if (rot === 90) { cv.width = ch; cv.height = cw; cx.translate(ch, 0); cx.rotate(Math.PI / 2); }
+    else { cv.width = cw; cv.height = ch; }
+    cx.drawImage(v, sx, sy, sw, sh, 0, 0, cw, ch);
+    return cv;
+  }
+  function decodeCanvas(cv){
+    var hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    var reader = new ZXing.MultiFormatReader();
+    reader.setHints(hints);
+    var bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)));
+    return String(reader.decode(bmp).getText());
+  }
+  function takePhoto(){
+    if (!scan.running || scan.busy) return;
+    var v = sc.video;
+    if (!v.videoWidth) { setStatus("La caméra n'est pas encore prête. Patiente un instant."); return; }
+    scan.busy = true;
+    $("scanShot").disabled = true;
+    setStatus("Lecture de la photo…");
+    sc.view.classList.add("flash");
+    setTimeout(function(){ sc.view.classList.remove("flash"); }, 180);
+    var frames = [grab(v, 1600, null, 0), grab(v, 900, null, 0), grab(v, 1000, [0.08, 0.16, 0.84, 0.52], 0), grab(v, 900, null, 90)];
+    loadZX().then(function(){
+      var code = null;
+      for (var i = 0; i < frames.length && !code; i++) {
+        try { code = decodeCanvas(frames[i]); } catch (e) { code = null; }
+      }
+      if (code) { handleCode(code); return; }
+      scan.busy = false;
+      $("scanShot").disabled = false;
+      setStatus("Code non lu. Rapproche-toi un peu, évite les reflets, attends que l'image soit nette, puis reprends la photo.");
+    }).catch(function(){
+      scan.busy = false;
+      $("scanShot").disabled = false;
+      setStatus("Le lecteur de code-barres n'a pas pu se charger. Vérifie ta connexion, ou tape le code-barres ci-dessous.");
     });
   }
 
@@ -1764,6 +1824,7 @@ details.more .items li{padding-left:0}
   }
 
   $("scanOpen").addEventListener("click", openScanner);
+  $("scanShot").addEventListener("click", takePhoto);
   $("scanClose").addEventListener("click", closeScanner);
   sc.retry.addEventListener("click", again);
   $("pAgain").addEventListener("click", again);
