@@ -297,6 +297,33 @@ details.more .items li{padding-left:0}
 .savemeal{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}
 .savemeal input{height:46px}
 .savemeal .ghost{min-height:46px}
+
+/* Scanner de code-barres */
+.toast{z-index:60}
+.scanbtn{display:flex;align-items:center;justify-content:center;gap:10px;min-height:54px;background:var(--surface);color:var(--fg);border:1px dashed var(--accent-b);border-radius:14px;font:600 15px/1 var(--font-body)}
+.scanbtn svg{width:22px;height:22px;stroke:var(--accent);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.scan{position:fixed;inset:0;z-index:50;background:#07070C;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.scanin{max-width:30rem;margin:0 auto;display:flex;flex-direction:column;gap:14px;min-width:0;
+  padding-top:calc(16px + env(safe-area-inset-top,0px));padding-bottom:calc(40px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.scanhead{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.scanhead h2{margin:0;font:600 18px/1.2 var(--font-display)}
+.scanview{position:relative;border-radius:20px;overflow:hidden;background:#000;aspect-ratio:4 / 3;max-width:100%;border:1px solid var(--line)}
+.scanview video{width:100%;height:100%;object-fit:cover;display:block}
+.reticle{position:absolute;inset:24% 9%;border:2px solid var(--accent);border-radius:14px;box-shadow:0 0 0 999px rgba(0,0,0,.4)}
+.scanmanual{display:grid;grid-template-columns:1fr auto;gap:8px}
+.scanres{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.pname{font:600 20px/1.25 var(--font-display);text-wrap:balance;overflow-wrap:anywhere}
+.nsrow{display:flex;gap:8px;padding:4px 6px}
+.nsrow span{flex:1;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font:700 16px var(--font-display);color:#fff;opacity:.3}
+.nsrow span.on{opacity:1;transform:scale(1.14);box-shadow:0 0 0 2px var(--fg)}
+.g-a{background:#038141}.g-b{background:#85BB2F}.g-c{background:#FECB02;color:#222!important}.g-d{background:#EE8100}.g-e{background:#E63E11}
+.verdict{margin:0;font:600 18px/1.3 var(--font-display);text-wrap:balance}
+.tags{display:flex;flex-wrap:wrap;gap:8px}
+.tag{border:1px solid var(--line);border-radius:999px;padding:6px 12px;font:500 12.5px/1.2 var(--font-body)}
+.tag.bad{border-color:var(--warn);color:var(--warn)}
+.tag.good{border-color:var(--accent);color:var(--accent)}
+.addrow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 </style>
 
 </head>
@@ -404,6 +431,10 @@ details.more .items li{padding-left:0}
 
   <section class="sec" aria-label="Ajouter un aliment">
     <h2 class="cap">Ajouter un aliment</h2>
+    <button type="button" class="scanbtn" id="scanOpen">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8"/></svg>
+      Scanner un code-barres
+    </button>
     <form class="addform" id="addForm" autocomplete="off">
       <div class="field full">
         <label class="cap" for="fName">Aliment</label>
@@ -520,6 +551,51 @@ details.more .items li{padding-left:0}
   <p class="foot" id="footNote">Les calories des aliments sont des estimations.</p>
 </main>
 
+<div class="scan" id="scan" role="dialog" aria-modal="true" aria-label="Scanner un produit" hidden>
+  <div class="scanin">
+    <div class="scanhead">
+      <h2>Scanner un produit</h2>
+      <button type="button" class="sq" id="scanClose" aria-label="Fermer">×</button>
+    </div>
+    <div class="scanview" id="scanView">
+      <video id="scanVideo" playsinline muted autoplay></video>
+      <div class="reticle" aria-hidden="true"></div>
+    </div>
+    <p class="note" id="scanStatus" role="status"></p>
+    <button type="button" class="linkbtn" id="scanRetry" hidden>Scanner à nouveau</button>
+    <form class="scanmanual" id="scanManual" autocomplete="off">
+      <input id="scanCode" type="text" inputmode="numeric" placeholder="ou tape le code (8 à 13 chiffres)" aria-label="Code-barres">
+      <button type="submit" class="ghost">Chercher</button>
+    </form>
+    <div class="scanres" id="scanRes" hidden>
+      <div>
+        <div class="pname" id="pName"></div>
+        <div class="cap" id="pBrand"></div>
+      </div>
+      <div class="nsrow" id="nsRow" role="img"></div>
+      <p class="verdict" id="pVerdict"></p>
+      <div class="tags" id="pTags"></div>
+      <p class="note" id="pNutri"></p>
+      <div class="addrow">
+        <div class="field"><label class="cap" for="pGrams" id="pGramsLabel">Quantité (g)</label><input id="pGrams" type="text" inputmode="decimal" placeholder="100"></div>
+        <div class="field"><label class="cap" for="pMeal">Repas</label>
+          <select id="pMeal">
+            <option value="petit-dej">Petit-déjeuner</option>
+            <option value="dejeuner">Déjeuner</option>
+            <option value="collation">Collation</option>
+            <option value="diner">Dîner</option>
+          </select>
+        </div>
+      </div>
+      <p class="hint" id="pCalc"></p>
+      <p class="msg" id="pMsg" role="alert"></p>
+      <button type="button" class="primary" id="pAdd">Ajouter au journal</button>
+      <button type="button" class="linkbtn" id="pAgain">Scanner un autre produit</button>
+      <p class="note">Les données viennent d'Open Food Facts, une base collaborative : elles peuvent être incomplètes ou fausses. Le Nutri-Score compare des produits du même type, ce n'est pas un avis médical.</p>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" hidden role="status">
   <div><span id="toastMsg"></span><button type="button" id="toastAct" hidden></button></div>
 </div>
@@ -617,6 +693,7 @@ details.more .items li{padding-left:0}
         t: Number(it.t) || 0
       };
       if (it.p !== undefined && it.p !== null && it.p !== "" && isFinite(Number(it.p)) && Number(it.p) >= 0) obj.p = Number(it.p);
+      if (/^[a-e]$/.test(String(it.ns || ""))) obj.ns = String(it.ns);
       out.push(obj);
     });
     return out;
@@ -699,7 +776,10 @@ details.more .items li{padding-left:0}
       list.forEach(function(it){
         var li = node("li");
         var nmSpan = node("span", "nm", it.name);
-        if (it.p != null && isFinite(Number(it.p))) nmSpan.appendChild(node("small", "sub", lab(it.p) + " g de protéines"));
+        var parts = [];
+        if (it.p != null && isFinite(Number(it.p))) parts.push(lab(it.p) + " g de protéines");
+        if (it.ns && /^[a-e]$/.test(String(it.ns))) parts.push("Nutri-Score " + String(it.ns).toUpperCase());
+        if (parts.length) nmSpan.appendChild(node("small", "sub", parts.join(" · ")));
         li.appendChild(nmSpan);
         li.appendChild(node("span", "num", nf(it.kcal)));
         var b = node("button", "del", "×");
@@ -884,6 +964,7 @@ details.more .items li{padding-left:0}
       t: Date.now()
     };
     if (protRaw && prv >= 0) item.p = Math.round(prv * 10) / 10;
+    if (foodSel && foodSel.ns) item.ns = foodSel.ns;
     commitDay(state.date, dayItems(state.date).concat([item]));
     el.fName.value = "";
     el.fKcal.value = "";
@@ -1067,7 +1148,7 @@ details.more .items li{padding-left:0}
   }
   var dbFoods = FOODS.map(function(f){ return {n: f[0], k: f[1], p: f[2], nn: norm(f[0]), own: false}; });
   function allFoods(){
-    var own = state.foods.map(function(f){ return {n: f.n, k: f.k, p: f.p, nn: norm(f.n), own: true}; });
+    var own = state.foods.map(function(f){ return {n: f.n, k: f.k, p: f.p, ns: f.ns, nn: norm(f.n), own: true}; });
     return own.concat(dbFoods);
   }
   function searchFoods(q){
@@ -1100,7 +1181,7 @@ details.more .items li{padding-left:0}
   }
   function setHint(){
     fEl.hint.hidden = !foodSel;
-    fEl.hint.textContent = foodSel ? nf(foodSel.k) + " kcal" + (foodSel.p != null ? " et " + lab(foodSel.p) + " g de protéines" : "") + " pour 100 g. Entre les grammes pour calculer." : "";
+    fEl.hint.textContent = foodSel ? nf(foodSel.k) + " kcal" + (foodSel.p != null ? " et " + lab(foodSel.p) + " g de protéines" : "") + " pour 100 g." + (foodSel.ns ? " Nutri-Score " + String(foodSel.ns).toUpperCase() + "." : "") + " Entre les grammes pour calculer." : "";
   }
   function pickFood(f){
     foodSel = f;
@@ -1153,24 +1234,26 @@ details.more .items li{padding-left:0}
   });
   fEl.kcal.addEventListener("input", updateRemember);
 
-  function saveFood(name, k100, p100){
+  function saveFood(name, k100, p100, ns, quiet){
     var key = norm(name);
     var k = Math.round(k100);
     if (!key || !(k > 0 && k < 1000)) return;
     var p = p100 != null && isFinite(p100) && p100 >= 0 && p100 <= 100 ? Math.round(p100 * 10) / 10 : null;
+    var g = ns && /^[a-e]$/.test(String(ns)) ? String(ns) : null;
     var found = false;
     state.foods.forEach(function(f){
-      if (norm(f.n) === key) { f.k = k; if (p != null) f.p = p; found = true; }
+      if (norm(f.n) === key) { f.k = k; if (p != null) f.p = p; if (g) f.ns = g; found = true; }
     });
     if (!found) {
       var nf0 = {n: name.slice(0, 60), k: k};
       if (p != null) nf0.p = p;
+      if (g) nf0.ns = g;
       state.foods.unshift(nf0);
     }
     state.foods = state.foods.slice(0, 100);
     persistSettings();
     renderFoodsList();
-    toast("« " + name.slice(0, 40) + " » mémorisé : " + nf(k) + " kcal pour 100 g.");
+    if (!quiet) toast("« " + name.slice(0, 40) + " » mémorisé : " + nf(k) + " kcal pour 100 g.");
   }
   function renderFoodsList(){
     var ul = $("foodsList");
@@ -1456,6 +1539,277 @@ details.more .items li{padding-left:0}
     });
   }
 
+
+  /* ---------- Scanner de code-barres et avis santé ---------- */
+  var ZX_URLS = [
+    "https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js",
+    "https://unpkg.com/@zxing/library@0.18.6/umd/index.min.js"
+  ];
+  var OFF_FIELDS = "product_name,product_name_fr,brands,nutriscore_grade,nova_group,serving_size,categories_tags,nutriments";
+  var sc = {
+    root: $("scan"), view: $("scanView"), video: $("scanVideo"), status: $("scanStatus"),
+    manual: $("scanManual"), code: $("scanCode"), retry: $("scanRetry"), res: $("scanRes")
+  };
+  var scan = {reader: null, running: false, busy: false, prod: null, loading: null};
+
+  function setStatus(t){ sc.status.textContent = t; }
+
+  function loadZX(){
+    if (window.ZXing) return Promise.resolve();
+    if (scan.loading) return scan.loading;
+    scan.loading = new Promise(function(resolve, reject){
+      var i = 0;
+      (function next(){
+        if (i >= ZX_URLS.length) { scan.loading = null; reject(new Error("zxing")); return; }
+        var el = document.createElement("script");
+        el.src = ZX_URLS[i++];
+        el.onload = function(){ if (window.ZXing) resolve(); else next(); };
+        el.onerror = function(){ el.remove(); next(); };
+        document.head.appendChild(el);
+      })();
+    });
+    return scan.loading;
+  }
+
+  function stopCamera(){
+    scan.running = false;
+    try { if (scan.reader) scan.reader.reset(); } catch (e) {}
+    scan.reader = null;
+    var st = sc.video.srcObject;
+    if (st && st.getTracks) st.getTracks().forEach(function(t){ t.stop(); });
+    sc.video.srcObject = null;
+  }
+
+  function startCamera(){
+    sc.retry.hidden = true;
+    sc.view.hidden = false;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      sc.view.hidden = true;
+      setStatus("La caméra n'est pas disponible ici. Tape le code-barres ci-dessous.");
+      return;
+    }
+    scan.running = true;
+    scan.busy = false;
+    setStatus("Démarrage de la caméra…");
+    loadZX().then(function(){
+      if (!scan.running) return null;
+      var hints = new Map();
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E]);
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      var reader = new ZXing.BrowserMultiFormatReader(hints, 250);
+      scan.reader = reader;
+      return reader.decodeFromConstraints({video: {facingMode: {ideal: "environment"}}, audio: false}, sc.video, function(result){
+        if (result && scan.running && !scan.busy) { scan.busy = true; handleCode(String(result.getText())); }
+      }).then(function(){ if (scan.running) setStatus("Place le code-barres dans le cadre, bien éclairé."); });
+    }).catch(function(err){
+      if (!scan.running) return;
+      stopCamera();
+      sc.view.hidden = true;
+      if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) setStatus("L'accès à la caméra est refusé. Autorise-le dans les réglages de Safari, ou tape le code-barres ci-dessous.");
+      else if (err && err.message === "zxing") setStatus("Le lecteur de code-barres n'a pas pu se charger. Vérifie ta connexion, ou tape le code-barres ci-dessous.");
+      else setStatus("La caméra ne démarre pas. Tape le code-barres ci-dessous.");
+      sc.retry.hidden = false;
+    });
+  }
+
+  function fail(msg){
+    scan.busy = false;
+    setStatus(msg);
+    sc.retry.hidden = false;
+  }
+
+  function n100(v){
+    var x = Number(v);
+    return v !== null && v !== undefined && v !== "" && isFinite(x) ? x : null;
+  }
+  function parseServing(t){
+    var m = String(t || "").match(/(\d+(?:[.,]\d+)?)\s*(ml|cl|g)\b/i);
+    if (!m) return null;
+    var v = parseFloat(m[1].replace(",", "."));
+    if (m[2].toLowerCase() === "cl") v *= 10;
+    return v > 0 && v <= 2000 ? Math.round(v * 10) / 10 : null;
+  }
+  function parseProduct(p, code){
+    var n = p.nutriments || {};
+    var k = n100(n["energy-kcal_100g"]);
+    if (k == null) {
+      var kj = n100(n["energy-kj_100g"] != null ? n["energy-kj_100g"] : n["energy_100g"]);
+      if (kj != null) k = kj / 4.184;
+    }
+    if (k == null || k < 0) return null;
+    var grade = String(p.nutriscore_grade || "").toLowerCase();
+    var tags = p.categories_tags || [];
+    return {
+      code: code,
+      name: String(p.product_name_fr || p.product_name || ("Produit " + code)).trim().slice(0, 60),
+      brand: String(p.brands || "").split(",")[0].trim().slice(0, 40),
+      k: k,
+      p: n100(n["proteins_100g"]),
+      sugars: n100(n["sugars_100g"]),
+      sat: n100(n["saturated-fat_100g"]),
+      salt: n100(n["salt_100g"]),
+      fat: n100(n["fat_100g"]),
+      fiber: n100(n["fiber_100g"]),
+      grade: /^[a-e]$/.test(grade) ? grade : null,
+      nova: Number(p.nova_group) >= 1 && Number(p.nova_group) <= 4 ? Number(p.nova_group) : null,
+      serving: parseServing(p.serving_size),
+      bev: tags.some(function(t){ return String(t).indexOf("beverages") > -1; })
+    };
+  }
+
+  function healthInfo(pr){
+    var tags = [];
+    var th = pr.bev ? {sug: 11.25, sat: 2.5, salt: 0.75, fat: 8.75} : {sug: 22.5, sat: 5, salt: 1.5, fat: 17.5};
+    if (pr.sugars != null && pr.sugars > th.sug) tags.push({t: "Riche en sucres", c: "bad"});
+    if (pr.sat != null && pr.sat > th.sat) tags.push({t: "Riche en graisses saturées", c: "bad"});
+    if (pr.salt != null && pr.salt > th.salt) tags.push({t: "Riche en sel", c: "bad"});
+    if (pr.fat != null && pr.fat > th.fat) tags.push({t: "Riche en matières grasses", c: "bad"});
+    if (pr.p != null && pr.k > 0 && pr.p * 4 >= 0.2 * pr.k) tags.push({t: "Riche en protéines", c: "good"});
+    if (pr.fiber != null && pr.fiber >= 6) tags.push({t: "Riche en fibres", c: "good"});
+    var nova = {4: ["Ultra-transformé", "bad"], 3: ["Transformé", ""], 2: ["Ingrédient culinaire", ""], 1: ["Peu transformé", "good"]}[pr.nova];
+    if (nova) tags.push({t: nova[0], c: nova[1]});
+    var verdict = {a: "Très bon choix", b: "Bon choix", c: "Correct, à consommer sans excès", d: "À limiter", e: "À consommer rarement"}[pr.grade] || "Pas de Nutri-Score pour ce produit.";
+    return {verdict: verdict, tags: tags};
+  }
+
+  function updateCalc(){
+    var pr = scan.prod;
+    if (!pr) return;
+    var g = num($("pGrams").value);
+    $("pCalc").textContent = g > 0
+      ? "= " + nf(g * pr.k / 100) + " kcal" + (pr.p != null ? " et " + lab(g * pr.p / 100) + " g de protéines" : "")
+      : "Entre la quantité mangée.";
+  }
+
+  function showResult(pr){
+    scan.prod = pr;
+    var hi = healthInfo(pr);
+    $("pName").textContent = pr.name;
+    $("pBrand").textContent = pr.brand;
+    var row = $("nsRow");
+    row.textContent = "";
+    row.hidden = !pr.grade;
+    if (pr.grade) {
+      "abcde".split("").forEach(function(g){ row.appendChild(node("span", "g-" + g + (g === pr.grade ? " on" : ""), g.toUpperCase())); });
+      row.setAttribute("aria-label", "Nutri-Score " + pr.grade.toUpperCase());
+    }
+    $("pVerdict").textContent = hi.verdict;
+    var tg = $("pTags");
+    tg.textContent = "";
+    hi.tags.forEach(function(t){ tg.appendChild(node("span", "tag" + (t.c ? " " + t.c : ""), t.t)); });
+    var unit = pr.bev ? "ml" : "g";
+    $("pNutri").textContent = nf(pr.k) + " kcal" + (pr.p != null ? " · " + lab(pr.p) + " g de protéines" : "") + " pour 100 " + unit;
+    $("pGramsLabel").textContent = "Quantité (" + unit + ")";
+    $("pGrams").value = pr.serving ? String(pr.serving).replace(".", ",") : "";
+    $("pMeal").value = defaultMeal();
+    $("pMsg").textContent = "";
+    updateCalc();
+    setStatus("Produit trouvé dans Open Food Facts.");
+    sc.view.hidden = true;
+    sc.manual.hidden = true;
+    sc.retry.hidden = true;
+    sc.res.hidden = false;
+    sc.root.scrollTop = 0;
+  }
+
+  function lookup(code){
+    var ctl = "AbortController" in window ? new AbortController() : null;
+    var to = setTimeout(function(){ if (ctl) ctl.abort(); }, 12000);
+    return fetch("https://world.openfoodfacts.org/api/v2/product/" + code + "?fields=" + OFF_FIELDS, ctl ? {signal: ctl.signal} : {})
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        clearTimeout(to);
+        return j && Number(j.status) === 1 && j.product ? j.product : null;
+      }, function(e){ clearTimeout(to); throw e; });
+  }
+
+  function handleCode(raw){
+    var code = String(raw).replace(/\D/g, "");
+    if (!/^\d{8,14}$/.test(code)) { scan.busy = false; setStatus("Ce code n'est pas valide. Réessaie."); return; }
+    stopCamera();
+    sc.view.hidden = true;
+    setStatus("Recherche du produit " + code + "…");
+    lookup(code).then(function(p){
+      if (!p) return fail("Produit introuvable dans la base (code " + code + "). Ajoute-le à la main avec « Ajouter un aliment ».");
+      var pr = parseProduct(p, code);
+      if (!pr) return fail("Ce produit n'a pas de calories renseignées dans la base. Ajoute-le à la main.");
+      showResult(pr);
+    }).catch(function(){
+      fail("Produit introuvable ou base injoignable. Vérifie ta connexion, puis réessaie, ou ajoute-le à la main.");
+    });
+  }
+
+  function openScanner(){
+    sc.root.hidden = false;
+    document.body.style.overflow = "hidden";
+    sc.res.hidden = true;
+    sc.manual.hidden = false;
+    sc.code.value = "";
+    sc.root.scrollTop = 0;
+    startCamera();
+  }
+  function closeScanner(){
+    stopCamera();
+    sc.root.hidden = true;
+    document.body.style.overflow = "";
+    scan.busy = false;
+    scan.prod = null;
+  }
+  function again(){
+    sc.res.hidden = true;
+    sc.manual.hidden = false;
+    sc.code.value = "";
+    scan.prod = null;
+    startCamera();
+  }
+
+  $("scanOpen").addEventListener("click", openScanner);
+  $("scanClose").addEventListener("click", closeScanner);
+  sc.retry.addEventListener("click", again);
+  $("pAgain").addEventListener("click", again);
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !sc.root.hidden) closeScanner(); });
+  document.addEventListener("visibilitychange", function(){
+    if (document.hidden && scan.running) {
+      stopCamera();
+      sc.view.hidden = true;
+      setStatus("Caméra en pause.");
+      sc.retry.hidden = false;
+    }
+  });
+  sc.manual.addEventListener("submit", function(e){
+    e.preventDefault();
+    var code = sc.code.value.replace(/\D/g, "");
+    if (!/^\d{8,14}$/.test(code)) { setStatus("Entre un code de 8 à 13 chiffres."); return; }
+    scan.busy = true;
+    handleCode(code);
+  });
+  $("pGrams").addEventListener("input", updateCalc);
+  $("pAdd").addEventListener("click", function(){
+    var pr = scan.prod;
+    if (!pr) return;
+    var g = num($("pGrams").value);
+    if (!(g > 0 && g <= 5000)) {
+      $("pMsg").textContent = "Entre la quantité en chiffres, par exemple 30.";
+      $("pGrams").focus();
+      return;
+    }
+    var kcal = Math.round(g * pr.k / 100);
+    var unit = pr.bev ? "ml" : "g";
+    var item = {
+      id: uid(),
+      name: pr.name + ", " + String(Math.round(g * 10) / 10).replace(".", ",") + " " + unit,
+      kcal: kcal,
+      meal: $("pMeal").value,
+      t: Date.now()
+    };
+    if (pr.p != null) item.p = Math.round(g * pr.p / 10) / 10;
+    if (pr.grade) item.ns = pr.grade;
+    commitDay(state.date, dayItems(state.date).concat([item]));
+    saveFood(pr.name, pr.k, pr.p, pr.grade, true);
+    closeScanner();
+    toast("« " + pr.name.slice(0, 40) + " » ajouté : " + nf(kcal) + " kcal.");
+  });
+
   /* ---------- Sauvegarde ---------- */
   function snapshot(){
     return JSON.stringify({
@@ -1483,6 +1837,7 @@ details.more .items li{padding-left:0}
         if (f && typeof f.n === "string" && Number(f.k) > 0 && Number(f.k) < 1000) {
           var fo = {n: f.n.slice(0, 60), k: Math.round(Number(f.k))};
           if (f.p != null && Number(f.p) >= 0 && Number(f.p) <= 100) fo.p = Number(f.p);
+          if (/^[a-e]$/.test(String(f.ns || ""))) fo.ns = String(f.ns);
           out.foods.push(fo);
         }
       });
