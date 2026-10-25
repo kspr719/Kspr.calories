@@ -349,6 +349,20 @@ details.more .items li{padding-left:0}
 .pred .pw{margin:0;font:500 12px/1.4 var(--font-data);color:var(--warn)}
 .tform{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
 .tform .primary{grid-column:auto;padding:0 22px}
+
+.streak{background:var(--surface);border:1px solid var(--hair);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.streak .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.streak .sn{display:flex;align-items:baseline;gap:8px}
+.streak .sn strong{font:600 34px/1 var(--font-display);font-variant-numeric:tabular-nums}
+.streak .sn span{font:500 12px var(--font-data);color:var(--muted)}
+.streak .rank{font:600 12px var(--font-data);color:var(--accent);letter-spacing:.04em;text-align:right}
+.constel{width:100%;height:auto;display:block}
+.constel .ln{stroke:var(--accent);stroke-width:1.6;opacity:.7}
+.constel .st{fill:var(--bg);stroke:var(--line);stroke-width:1.4}
+.constel .st.on{fill:var(--accent);stroke:#E4DCFF;filter:drop-shadow(0 0 5px rgba(167,139,250,.9))}
+.constel .td{fill:none;stroke:var(--accent);stroke-width:1.2;stroke-dasharray:2 3}
+.constel text{font:500 9px var(--font-data);fill:var(--muted);text-anchor:middle}
+.constel text.t{fill:var(--accent)}
 </style>
 
 </head>
@@ -434,6 +448,15 @@ details.more .items li{padding-left:0}
     <button type="button" class="linkbtn" id="editProfile">Calculer mon objectif</button>
   </section>
 
+
+  <section class="streak" aria-label="Série de jours">
+    <div class="row">
+      <div class="sn"><strong id="stNum">0</strong><span id="stLab">jour d'affilée</span></div>
+      <div class="rank" id="stRank"></div>
+    </div>
+    <svg class="constel" id="constel" viewBox="0 0 280 66" role="img" aria-label="Les 7 derniers jours"></svg>
+    <p class="mnote" id="stNote"></p>
+  </section>
 
   <section class="chal" aria-label="Défis du jour">
     <div class="row"><span class="cap">Défis du jour</span><span class="burn" id="burn">0 kcal dépensées</span></div>
@@ -1614,6 +1637,48 @@ details.more .items li{padding-left:0}
     });
     var all = done.length >= 3;
     $("burn").textContent = (tot ? "~" + tot : "0") + " kcal dépensées" + (all ? " 🎉" : "");
+    renderStreak();
+  }
+
+
+  /* ---------- Série de jours : la constellation ---------- */
+  function dayOk(d){
+    var it = dayItems(d), t = sum(it);
+    return (it.length > 0 && t <= state.goal) || (state.done[d] || []).length >= 3;
+  }
+  function streakRank(n){
+    return n >= 30 ? "✦ Galaxie" : n >= 14 ? "✦ Constellation" : n >= 7 ? "✦ Étoile" : n >= 3 ? "✦ Éclat" : "";
+  }
+  function renderStreak(){
+    var today = todayStr(), n = 0, d = today;
+    if (!dayOk(today)) d = shift(today, -1);
+    while (dayOk(d) && n < 3650) { n++; d = shift(d, -1); }
+    var keys = Object.keys(state.days).concat(Object.keys(state.done)).sort(), best = 0, run = 0;
+    if (keys.length) {
+      for (var c = keys[0], g = 0; c <= today && g < 4000; c = shift(c, 1), g++) { if (dayOk(c)) { run++; if (run > best) best = run; } else run = 0; }
+    }
+    $("stNum").textContent = String(n);
+    $("stLab").textContent = n > 1 ? "jours d'affilée" : "jour d'affilée";
+    $("stRank").textContent = streakRank(n);
+    var todayOk = dayOk(today);
+    $("stNote").textContent = todayOk
+      ? "Aujourd'hui est validé. Record : " + best + (best > 1 ? " jours." : " jour.")
+      : "Valide ta journée : reste sous ton objectif de calories, ou fais les 3 défis. Record : " + best + (best > 1 ? " jours." : " jour.");
+    var svg = $("constel"), ns = "http://www.w3.org/2000/svg", ys = [38, 24, 40, 22, 36, 26, 34], pts = [], i;
+    svg.textContent = "";
+    function mk(tag, attrs, txt){ var e = document.createElementNS(ns, tag); Object.keys(attrs).forEach(function(k){ e.setAttribute(k, attrs[k]); }); if (txt != null) e.textContent = txt; return e; }
+    var days = [];
+    for (i = 6; i >= 0; i--) days.push(shift(today, -i));
+    days.forEach(function(dd, k){ pts.push([22 + k * 39, ys[k], dayOk(dd)]); });
+    for (i = 0; i < 6; i++) if (pts[i][2] && pts[i + 1][2]) svg.appendChild(mk("line", {"class": "ln", x1: pts[i][0], y1: pts[i][1], x2: pts[i + 1][0], y2: pts[i + 1][1]}));
+    var L = ["D", "L", "M", "M", "J", "V", "S"];
+    pts.forEach(function(p, k){
+      var x = p[0], y = p[1], r = 8, q = 2.6;
+      var star = mk("path", {"class": "st" + (p[2] ? " on" : ""), d: "M" + x + " " + (y - r) + " Q" + (x + q) + " " + (y - q) + " " + (x + r) + " " + y + " Q" + (x + q) + " " + (y + q) + " " + x + " " + (y + r) + " Q" + (x - q) + " " + (y + q) + " " + (x - r) + " " + y + " Q" + (x - q) + " " + (y - q) + " " + x + " " + (y - r) + "Z"});
+      svg.appendChild(star);
+      if (k === 6) svg.appendChild(mk("circle", {"class": "td", cx: x, cy: y, r: 13}));
+      svg.appendChild(mk("text", {x: x, y: 62, "class": k === 6 ? "t" : ""}, L[parseDate(days[k]).getDay()]));
+    });
   }
 
   function setWater(n){
