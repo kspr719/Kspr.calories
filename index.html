@@ -330,6 +330,18 @@ details.more .items li{padding-left:0}
 .shutter:active{background:var(--accent-b)}
 .shutter:disabled{opacity:.45}
 .scanview.flash::after{content:"";position:absolute;inset:0;background:#fff;opacity:.55;pointer-events:none}
+
+.chal{background:var(--surface);border:1px solid var(--hair);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.chal .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.chal .burn{font:600 13px var(--font-data);color:var(--accent);font-variant-numeric:tabular-nums}
+.cl{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.cl button{width:100%;display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 12px;text-align:left;background:var(--field);border:1px solid var(--line);border-radius:14px;color:var(--fg);font:600 15px/1.3 var(--font-body)}
+.cl .bx{flex:none;width:26px;height:26px;border-radius:8px;border:2px solid var(--accent);display:grid;place-items:center;font-size:16px;color:#fff}
+.cl button[aria-pressed="true"]{background:rgba(139,92,246,.18);border-color:var(--accent)}
+.cl button[aria-pressed="true"] .bx{background:var(--accent-a)}
+.cl button[aria-pressed="true"] .tx{text-decoration:line-through;opacity:.75}
+.cl .tx{flex:1}
+.cl .kc{flex:none;font:500 12px var(--font-data);color:var(--muted)}
 </style>
 
 </head>
@@ -415,6 +427,12 @@ details.more .items li{padding-left:0}
     <button type="button" class="linkbtn" id="editProfile">Calculer mon objectif</button>
   </section>
 
+
+  <section class="chal" aria-label="Défis du jour">
+    <div class="row"><span class="cap">Défis du jour</span><span class="burn" id="burn">0 kcal dépensées</span></div>
+    <ul class="cl" id="chalList"></ul>
+    <p class="mnote" id="chalNote">Coche chaque défi une fois terminé. Les calories sont des estimations.</p>
+  </section>
 
   <section class="duo" aria-label="Protéines et eau">
     <div class="mini">
@@ -642,6 +660,7 @@ details.more .items li{padding-left:0}
     foods: [],
     meals: [],
     water: {},
+    done: {},
     proteinGoal: null,
     waterGoal: 8,
     savingMeal: null,
@@ -664,7 +683,7 @@ details.more .items li{padding-left:0}
 
   /* ---------- Stockage ---------- */
   function saveLocal(){
-    try { localStorage.setItem(LS_KEY, JSON.stringify({days: state.days, goal: state.goal, tdee: state.tdee, profile: state.profile, skipped: state.skipped, weights: state.weights, foods: state.foods, meals: state.meals, water: state.water, proteinGoal: state.proteinGoal, waterGoal: state.waterGoal})); } catch (e) {}
+    try { localStorage.setItem(LS_KEY, JSON.stringify({days: state.days, goal: state.goal, tdee: state.tdee, profile: state.profile, skipped: state.skipped, weights: state.weights, foods: state.foods, meals: state.meals, water: state.water, done: state.done, proteinGoal: state.proteinGoal, waterGoal: state.waterGoal})); } catch (e) {}
   }
   function loadLocal(){
     try {
@@ -680,6 +699,7 @@ details.more .items li{padding-left:0}
       if (v && Array.isArray(v.foods)) state.foods = v.foods;
       if (v && Array.isArray(v.meals)) state.meals = v.meals;
       if (v && v.water && typeof v.water === "object") state.water = v.water;
+      if (v && v.done && typeof v.done === "object") state.done = v.done;
       if (v && Number(v.proteinGoal) > 0) state.proteinGoal = Number(v.proteinGoal);
       if (v && Number(v.waterGoal) > 0) state.waterGoal = Number(v.waterGoal);
       if (state.profile && Number(state.profile.weight) > 0 && !Object.keys(state.weights).length) state.weights[todayStr()] = Number(state.profile.weight);
@@ -1454,6 +1474,7 @@ details.more .items li{padding-left:0}
     $("protBar").classList.toggle("done", tot >= goal && goal > 0);
     $("protNote").textContent = !items.length ? "" : miss > 0 ? miss + (miss > 1 ? " aliments sans valeur" : " aliment sans valeur") : "";
 
+    renderChallenges();
     var n = state.water[state.date] || 0;
     var wg = state.waterGoal || 8;
     $("waterVal").textContent = String(n);
@@ -1466,6 +1487,52 @@ details.more .items li{padding-left:0}
       ? "Objectif de protéines choisi par toi. Laisse la case vide pour revenir au calcul automatique."
       : "Calcul automatique : 1,6 g par kg de poids, soit " + nf(protGoal()) + " g. Valeurs indicatives.";
   }
+
+  /* ---------- Défis du jour ---------- */
+  // [id, texte, MET, minutes, type]  (kcal ≈ MET × poids × minutes / 60)
+  var CHALS = [
+    ["pomp","10 pompes",8,1,"m"], ["squa","15 squats",5,1.5,"m"], ["fent","10 fentes par jambe",5,2,"m"],
+    ["gain","Gainage 30 secondes",3.5,0.5,"m"], ["abdo","15 abdos",3.8,1.5,"m"], ["chai","20 squats chaise (dos au mur)",4,1.5,"m"],
+    ["dips","10 dips sur une chaise",6,1,"m"], ["pont","20 ponts fessiers",3.5,2,"m"],
+    ["marc","Marcher 15 minutes",3.5,15,"c"], ["cour","Courir 10 minutes",9,10,"c"], ["jump","40 jumping jacks",8,2,"c"],
+    ["esca","Monter les escaliers 3 minutes",8,3,"c"], ["genx","Montées de genoux 1 minute",8,1,"c"], ["danc","Danser 10 minutes",5,10,"c"],
+    ["burp","8 burpees",10,1.5,"c"], ["velo","Vélo ou marche rapide 20 minutes",6,20,"c"]
+  ];
+  function chalWeight(){ return currentWeight() || 75; }
+  function chalKcal(c){ return Math.max(1, Math.round(c[2] * chalWeight() * c[3] / 60)); }
+  function dayChallenges(date){
+    var n = Math.round(parseDate(date).getTime() / 864e5);
+    var m = CHALS.filter(function(c){ return c[4] === "m"; }), k = CHALS.filter(function(c){ return c[4] === "c"; });
+    var a = m[(n * 3 + 1) % m.length];
+    var b = k[(n * 5 + 2) % k.length];
+    var pool = (n % 2 ? m : k), c, i = 0;
+    do { c = pool[(n * 7 + 3 + i) % pool.length]; i++; } while ((c === a || c === b) && i < 20);
+    return [a, b, c];
+  }
+  function renderChallenges(){
+    var list = $("chalList"), ch = dayChallenges(state.date), done = state.done[state.date] || [], tot = 0;
+    list.innerHTML = "";
+    ch.forEach(function(c){
+      var on = done.indexOf(c[0]) >= 0, kc = chalKcal(c);
+      if (on) tot += kc;
+      var li = document.createElement("li"), b = document.createElement("button");
+      b.type = "button"; b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.innerHTML = '<span class="bx" aria-hidden="true">' + (on ? "✓" : "") + '</span><span class="tx"></span><span class="kc"></span>';
+      b.querySelector(".tx").textContent = c[1];
+      b.querySelector(".kc").textContent = "~" + kc + " kcal";
+      b.addEventListener("click", function(){
+        var d = (state.done[state.date] || []).slice(), i = d.indexOf(c[0]);
+        if (i >= 0) d.splice(i, 1); else d.push(c[0]);
+        if (d.length) state.done[state.date] = d; else delete state.done[state.date];
+        persistSettings();
+        renderChallenges();
+      });
+      li.appendChild(b); list.appendChild(li);
+    });
+    var all = done.length >= 3;
+    $("burn").textContent = (tot ? "~" + tot : "0") + " kcal dépensées" + (all ? " 🎉" : "");
+  }
+
   function setWater(n){
     n = Math.max(0, Math.min(30, n));
     if (n) state.water[state.date] = n; else delete state.water[state.date];
@@ -1874,15 +1941,15 @@ details.more .items li{padding-left:0}
   /* ---------- Sauvegarde ---------- */
   function snapshot(){
     return JSON.stringify({
-      app: "suivi-calories", v: 4, saved: new Date().toISOString(),
+      app: "suivi-calories", v: 5, saved: new Date().toISOString(),
       days: state.days, goal: state.goal, tdee: state.tdee, profile: state.profile,
       skipped: state.skipped, weights: state.weights, foods: state.foods,
-      meals: state.meals, water: state.water, proteinGoal: state.proteinGoal, waterGoal: state.waterGoal
+      meals: state.meals, water: state.water, done: state.done, proteinGoal: state.proteinGoal, waterGoal: state.waterGoal
     });
   }
   function sanitize(o){
     if (!o || o.app !== "suivi-calories" || !o.days || typeof o.days !== "object") return null;
-    var out = {days: {}, weights: {}, foods: [], meals: [], water: {}, proteinGoal: null, waterGoal: 8, goal: 1875, tdee: null, profile: null, skipped: !!o.skipped};
+    var out = {days: {}, weights: {}, foods: [], meals: [], water: {}, done: {}, proteinGoal: null, waterGoal: 8, goal: 1875, tdee: null, profile: null, skipped: !!o.skipped};
     var re = /^\d{4}-\d{2}-\d{2}$/;
     Object.keys(o.days).forEach(function(d){
       if (re.test(d)) { var it = clean(o.days[d]); if (it.length) out.days[d] = it; }
@@ -1918,6 +1985,14 @@ details.more .items li{padding-left:0}
       Object.keys(o.water).forEach(function(d){
         var n = Math.round(Number(o.water[d]));
         if (re.test(d) && n > 0 && n <= 30) out.water[d] = n;
+      });
+    }
+    if (o.done && typeof o.done === "object") {
+      Object.keys(o.done).forEach(function(d){
+        if (re.test(d) && Array.isArray(o.done[d])) {
+          var ids = o.done[d].filter(function(x){ return typeof x === "string" && /^[a-z0-9]{1,12}$/.test(x); }).slice(0, 10);
+          if (ids.length) out.done[d] = ids;
+        }
       });
     }
     var pg = Number(o.proteinGoal); if (pg >= 30 && pg <= 400) out.proteinGoal = pg;
@@ -1968,7 +2043,7 @@ details.more .items li{padding-left:0}
     var r = restoreReady;
     state.days = r.days; state.weights = r.weights; state.foods = r.foods;
     state.goal = r.goal; state.tdee = r.tdee; state.profile = r.profile; state.skipped = r.skipped;
-    state.meals = r.meals; state.water = r.water; state.proteinGoal = r.proteinGoal; state.waterGoal = r.waterGoal;
+    state.meals = r.meals; state.water = r.water; state.done = r.done || {}; state.proteinGoal = r.proteinGoal; state.waterGoal = r.waterGoal;
     saveLocal();
     $("restoreBox").value = "";
     resetRestore();
