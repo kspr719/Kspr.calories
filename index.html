@@ -342,6 +342,13 @@ details.more .items li{padding-left:0}
 .cl button[aria-pressed="true"] .tx{text-decoration:line-through;opacity:.75}
 .cl .tx{flex:1}
 .cl .kc{flex:none;font:500 12px var(--font-data);color:var(--muted)}
+
+.pred{background:var(--field);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.pred .pl{margin:0;font:500 13px/1.45 var(--font-body);color:var(--fg)}
+.pred .pl b{color:var(--accent);font-weight:700}
+.pred .pw{margin:0;font:500 12px/1.4 var(--font-data);color:var(--warn)}
+.tform{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+.tform .primary{grid-column:auto;padding:0 22px}
 </style>
 
 </head>
@@ -520,6 +527,15 @@ details.more .items li{padding-left:0}
       <div class="cap" id="wChange"></div>
     </div>
     <div id="wChart"></div>
+    <div class="pred" id="pred" aria-live="polite"></div>
+    <form class="tform" id="tForm" autocomplete="off">
+      <div class="field">
+        <label class="cap" for="tInput">Poids cible (kg)</label>
+        <input id="tInput" type="text" inputmode="decimal" placeholder="ex. 80">
+      </div>
+      <button type="submit" class="primary" id="tBtn">Enregistrer</button>
+    </form>
+    <p class="msg" id="tMsg" role="alert"></p>
     <form class="wform" id="wForm" autocomplete="off">
       <div class="field">
         <label class="cap" for="wInput" id="wLabel">Poids du jour</label>
@@ -661,6 +677,7 @@ details.more .items li{padding-left:0}
     meals: [],
     water: {},
     done: {},
+    targetWeight: null,
     proteinGoal: null,
     waterGoal: 8,
     savingMeal: null,
@@ -683,7 +700,7 @@ details.more .items li{padding-left:0}
 
   /* ---------- Stockage ---------- */
   function saveLocal(){
-    try { localStorage.setItem(LS_KEY, JSON.stringify({days: state.days, goal: state.goal, tdee: state.tdee, profile: state.profile, skipped: state.skipped, weights: state.weights, foods: state.foods, meals: state.meals, water: state.water, done: state.done, proteinGoal: state.proteinGoal, waterGoal: state.waterGoal})); } catch (e) {}
+    try { localStorage.setItem(LS_KEY, JSON.stringify({days: state.days, goal: state.goal, tdee: state.tdee, profile: state.profile, skipped: state.skipped, weights: state.weights, foods: state.foods, meals: state.meals, water: state.water, done: state.done, targetWeight: state.targetWeight, proteinGoal: state.proteinGoal, waterGoal: state.waterGoal})); } catch (e) {}
   }
   function loadLocal(){
     try {
@@ -700,6 +717,7 @@ details.more .items li{padding-left:0}
       if (v && Array.isArray(v.meals)) state.meals = v.meals;
       if (v && v.water && typeof v.water === "object") state.water = v.water;
       if (v && v.done && typeof v.done === "object") state.done = v.done;
+      if (v && Number(v.targetWeight) >= 30 && Number(v.targetWeight) <= 300) state.targetWeight = Number(v.targetWeight);
       if (v && Number(v.proteinGoal) > 0) state.proteinGoal = Number(v.proteinGoal);
       if (v && Number(v.waterGoal) > 0) state.waterGoal = Number(v.waterGoal);
       if (state.profile && Number(state.profile.weight) > 0 && !Object.keys(state.weights).length) state.weights[todayStr()] = Number(state.profile.weight);
@@ -1373,7 +1391,72 @@ details.more .items li{padding-left:0}
     box.appendChild(svg);
   }
 
+
+
+  /* ---------- Date estimée de l'objectif de poids ---------- */
+  function longDay(d){ return new Intl.DateTimeFormat("fr-FR", {day: "numeric", month: "long", year: "numeric"}).format(d); }
+  function estDate(kgToLose, perDay){
+    var days = Math.ceil(kgToLose / perDay);
+    if (!isFinite(days) || days < 0) return null;
+    if (days > 730) return "dans plus de 2 ans (rythme trop lent)";
+    var d = parseDate(todayStr()); d.setDate(d.getDate() + days);
+    return "vers le <b>" + longDay(d) + "</b> (dans " + days + (days > 1 ? " jours" : " jour") + ")";
+  }
+  function trendPerDay(){
+    var ds = Object.keys(state.weights).sort();
+    if (ds.length < 3) return null;
+    var lastD = ds[ds.length - 1], from = shift(lastD, -28);
+    ds = ds.filter(function(d){ return d >= from; });
+    if (ds.length < 3) return null;
+    var t0 = parseDate(ds[0]).getTime(), xs = [], ys = [];
+    ds.forEach(function(d){ xs.push((parseDate(d).getTime() - t0) / 864e5); ys.push(state.weights[d]); });
+    if (xs[xs.length - 1] < 7) return null;
+    var n = xs.length, mx = 0, my = 0, i;
+    for (i = 0; i < n; i++) { mx += xs[i]; my += ys[i]; }
+    mx /= n; my /= n;
+    var sxy = 0, sxx = 0;
+    for (i = 0; i < n; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sxx += (xs[i] - mx) * (xs[i] - mx); }
+    return sxx > 0 ? sxy / sxx : null;
+  }
+  function renderPrediction(){
+    var box = $("pred"), T = state.targetWeight, cur = currentWeight();
+    box.textContent = "";
+    function line(html, cls){ var p = document.createElement("p"); p.className = cls || "pl"; p.innerHTML = html; box.appendChild(p); }
+    $("tInput").placeholder = T ? fk(T) : "ex. 80";
+    $("tBtn").textContent = T ? "Mettre à jour" : "Enregistrer";
+    if (!T) { line("Choisis un poids cible pour voir la date estimée à laquelle tu pourrais l'atteindre."); return; }
+    if (!cur) { line("Note ton poids pour voir l'estimation."); return; }
+    var h = state.profile && Number(state.profile.height) > 0 ? Number(state.profile.height) / 100 : 0;
+    if (h && T / (h * h) < 18.5) { line("Ce poids cible est trop bas pour ta taille (IMC sous 18,5). Choisis un objectif plus haut.", "pw"); return; }
+    if (cur <= T) { line("Objectif atteint 🎉 Tu es à <b>" + fk(cur) + " kg</b> pour un objectif de " + fk(T) + " kg."); return; }
+    var left = cur - T;
+    line("Il te reste <b>" + fk(left) + " kg</b> à perdre (objectif " + fk(T) + " kg).");
+    var tr = trendPerDay();
+    if (tr == null) line("Selon ta courbe : ajoute des pesées sur au moins une semaine pour avoir cette estimation.");
+    else if (tr > -0.005) line("Selon ta courbe : elle ne descend pas encore, donc pas de date possible.");
+    else line("Selon ta courbe : " + estDate(left, -tr) + ", à " + fk(-tr * 7) + " kg par semaine.");
+    if (state.tdee && state.goal < state.tdee) {
+      var rate = (state.tdee - state.goal) / 7700;
+      line("Selon ton déficit : " + estDate(left, rate) + ", à " + fk(rate * 7) + " kg par semaine.");
+      if (rate * 7 > 1) line("Rythme rapide : 0,5 à 1 kg par semaine est plus sûr.", "pw");
+    }
+    line("Estimations indicatives : le poids varie d'un jour à l'autre.", "mnote");
+  }
+  $("tForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var raw = $("tInput").value.trim();
+    if (!raw) { if (state.targetWeight) { state.targetWeight = null; persistSettings(); renderPrediction(); $("tMsg").textContent = "Objectif de poids retiré."; } return; }
+    var v = num(raw);
+    if (!(v >= 30 && v <= 300)) { $("tMsg").textContent = "Entre un poids en kilos, par exemple 80."; $("tInput").focus(); return; }
+    $("tMsg").textContent = "";
+    state.targetWeight = Math.round(v * 10) / 10;
+    $("tInput").value = "";
+    persistSettings();
+    renderPrediction();
+  });
+
   function renderWeight(){
+    renderPrediction();
     var dates = Object.keys(state.weights).sort();
     var chart = $("wChart");
     var has = !!state.weights[state.date];
@@ -1941,15 +2024,15 @@ details.more .items li{padding-left:0}
   /* ---------- Sauvegarde ---------- */
   function snapshot(){
     return JSON.stringify({
-      app: "suivi-calories", v: 5, saved: new Date().toISOString(),
+      app: "suivi-calories", v: 6, saved: new Date().toISOString(),
       days: state.days, goal: state.goal, tdee: state.tdee, profile: state.profile,
       skipped: state.skipped, weights: state.weights, foods: state.foods,
-      meals: state.meals, water: state.water, done: state.done, proteinGoal: state.proteinGoal, waterGoal: state.waterGoal
+      meals: state.meals, water: state.water, done: state.done, targetWeight: state.targetWeight, proteinGoal: state.proteinGoal, waterGoal: state.waterGoal
     });
   }
   function sanitize(o){
     if (!o || o.app !== "suivi-calories" || !o.days || typeof o.days !== "object") return null;
-    var out = {days: {}, weights: {}, foods: [], meals: [], water: {}, done: {}, proteinGoal: null, waterGoal: 8, goal: 1875, tdee: null, profile: null, skipped: !!o.skipped};
+    var out = {days: {}, weights: {}, foods: [], meals: [], water: {}, done: {}, targetWeight: null, proteinGoal: null, waterGoal: 8, goal: 1875, tdee: null, profile: null, skipped: !!o.skipped};
     var re = /^\d{4}-\d{2}-\d{2}$/;
     Object.keys(o.days).forEach(function(d){
       if (re.test(d)) { var it = clean(o.days[d]); if (it.length) out.days[d] = it; }
@@ -1995,6 +2078,7 @@ details.more .items li{padding-left:0}
         }
       });
     }
+    var tw = Number(o.targetWeight); if (tw >= 30 && tw <= 300) out.targetWeight = Math.round(tw * 10) / 10;
     var pg = Number(o.proteinGoal); if (pg >= 30 && pg <= 400) out.proteinGoal = pg;
     var wgl = Number(o.waterGoal); if (wgl >= 1 && wgl <= 30) out.waterGoal = wgl;
     var g = Number(o.goal); if (g >= 500 && g <= 8000) out.goal = g;
@@ -2043,7 +2127,7 @@ details.more .items li{padding-left:0}
     var r = restoreReady;
     state.days = r.days; state.weights = r.weights; state.foods = r.foods;
     state.goal = r.goal; state.tdee = r.tdee; state.profile = r.profile; state.skipped = r.skipped;
-    state.meals = r.meals; state.water = r.water; state.done = r.done || {}; state.proteinGoal = r.proteinGoal; state.waterGoal = r.waterGoal;
+    state.meals = r.meals; state.water = r.water; state.done = r.done || {}; state.targetWeight = r.targetWeight || null; state.proteinGoal = r.proteinGoal; state.waterGoal = r.waterGoal;
     saveLocal();
     $("restoreBox").value = "";
     resetRestore();
