@@ -1113,7 +1113,7 @@ details.more .items li{padding-left:0}
     var bmr = 10 * p.weight + 6.25 * p.height - 5 * p.age + (p.sex === "h" ? 5 : -161);
     var tdee = bmr * p.act;
     var bmi = p.weight / Math.pow(p.height / 100, 2);
-    var floor = p.sex === "h" ? 1500 : 1200;
+    var floor = 1200;
     var goal = tdee - p.def;
     var note = "";
     if (bmi < 18.5) { goal = tdee; note = "bmi"; }
@@ -1156,6 +1156,7 @@ details.more .items li{padding-left:0}
     sEl.submit.disabled = false;
     if (r.note === "bmi") sEl.msg.textContent = "Ton IMC est inférieur à 18,5 : l'app ne propose pas de déficit, l'objectif correspond à ta dépense estimée.";
     else if (r.note === "floor") sEl.msg.textContent = "L'objectif est limité à " + nf(r.floor) + " kcal, un minimum à ne pas descendre sous.";
+    else if (r.goal < 1500) sEl.msg.textContent = "Objectif bas : mange assez de protéines, surveille ta fatigue, et demande conseil à un médecin si tu te sens mal.";
     return {p: p, r: r};
   }
   function prepSetup(){
