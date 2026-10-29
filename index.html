@@ -400,10 +400,13 @@ details.more .items li{padding-left:0}
       <div class="field">
         <label class="cap" for="sDef">Rythme de perte</label>
         <select id="sDef">
-          <option value="300">Doux : 300 kcal de moins par jour</option>
-          <option value="500" selected>Modéré : 500 kcal de moins par jour</option>
-          <option value="750">Soutenu : 750 kcal de moins par jour</option>
+          <option value="275">0,25 kg par semaine · très doux</option>
+          <option value="550" selected>0,5 kg par semaine · modéré</option>
+          <option value="825">0,75 kg par semaine · soutenu</option>
+          <option value="1100">1 kg par semaine · maximum</option>
+          <option value="custom">Autre (je choisis)</option>
         </select>
+        <input id="sDefCustom" type="text" inputmode="decimal" placeholder="kg par semaine, de 0,1 à 1" hidden>
       </div>
       <div class="result" id="sResult" hidden>
         <span class="cap">Objectif par jour</span>
@@ -411,7 +414,8 @@ details.more .items li{padding-left:0}
         <ul class="lines">
           <li>Métabolisme de base : <span id="sBmr">0</span> kcal</li>
           <li>Dépense estimée : <span id="sTdee">0</span> kcal</li>
-          <li>Déficit : <span id="sDefOut">0</span> kcal</li>
+          <li>Déficit : <span id="sDefOut">0</span> kcal par jour</li>
+          <li>Perte estimée : <span id="sWeek">0</span> kg par semaine</li>
         </ul>
       </div>
       <p class="note" id="sMsg" role="status"></p>
@@ -975,7 +979,7 @@ details.more .items li{padding-left:0}
 
     if (state.tdee && state.tdee > state.goal) {
       el.tdeeNote.hidden = false;
-      el.tdeeNote.textContent = "Dépense estimée : " + nf(state.tdee) + " kcal par jour. Avec cet objectif, le déficit prévu est d'environ " + nf(state.tdee - state.goal) + " kcal par jour.";
+      el.tdeeNote.textContent = "Dépense estimée : " + nf(state.tdee) + " kcal par jour. Avec cet objectif, le déficit prévu est d'environ " + nf(state.tdee - state.goal) + " kcal par jour, soit environ " + kgw((state.tdee - state.goal) * 7 / 7700) + " kg par semaine.";
     } else {
       el.tdeeNote.hidden = true;
     }
@@ -1094,8 +1098,16 @@ details.more .items li{padding-left:0}
   function readSetup(){
     return {
       sex: setupSex, age: num(sEl.age.value), height: num(sEl.height.value), weight: num(sEl.weight.value),
-      act: parseFloat(sEl.act.value), def: parseInt(sEl.def.value, 10)
+      act: parseFloat(sEl.act.value), def: readDef()
     };
+  }
+  function kgw(x){ return String(Math.round(x * 100) / 100).replace(".", ","); }
+  function readDef(){
+    if (sEl.def.value === "custom") {
+      var k = num($("sDefCustom").value);
+      return k >= 0.1 && k <= 1 ? Math.round(k * 1100) : NaN;
+    }
+    return parseInt(sEl.def.value, 10);
   }
   function calc(p){
     var bmr = 10 * p.weight + 6.25 * p.height - 5 * p.age + (p.sex === "h" ? 5 : -161);
@@ -1130,7 +1142,12 @@ details.more .items li{padding-left:0}
       sEl.msg.textContent = "Vérifie les valeurs : âge de 18 à 90 ans, taille de 120 à 230 cm, poids de 30 à 300 kg.";
       return null;
     }
+    if (!(p.def > 0)) {
+      sEl.msg.textContent = "Entre une perte de poids entre 0,1 et 1 kg par semaine, par exemple 0,6.";
+      return null;
+    }
     var r = calc(p);
+    $("sWeek").textContent = kgw(Math.max(r.tdee - r.goal, 0) * 7 / 7700);
     sEl.goal.textContent = nf(r.goal);
     sEl.bmr.textContent = nf(r.bmr);
     sEl.tdee.textContent = nf(r.tdee);
@@ -1148,14 +1165,23 @@ details.more .items li{padding-left:0}
     sEl.height.value = pr && pr.height ? String(pr.height) : "";
     sEl.weight.value = pr && pr.weight ? String(pr.weight).replace(".", ",") : "";
     sEl.act.value = pr && pr.act ? String(pr.act) : "1.2";
-    sEl.def.value = pr && pr.def ? String(pr.def) : "500";
+    var d = pr && pr.def ? Number(pr.def) : 550, presets = [275, 550, 825, 1100], hit = null;
+    presets.forEach(function(v){ if (Math.abs(d - v) <= 5) hit = v; });
+    if (hit) { sEl.def.value = String(hit); $("sDefCustom").value = ""; }
+    else { sEl.def.value = "custom"; $("sDefCustom").value = kgw(Math.min(1, d * 7 / 7700)); }
+    $("sDefCustom").hidden = sEl.def.value !== "custom";
     sEl.skip.textContent = state.profile ? "Annuler" : "Passer et garder " + nf(state.goal) + " kcal";
     updateSetup();
   }
   sEl.sexH.addEventListener("click", function(){ setSex("h"); updateSetup(); });
   sEl.sexF.addEventListener("click", function(){ setSex("f"); updateSetup(); });
   ["input", "change"].forEach(function(ev){
-    [sEl.age, sEl.height, sEl.weight, sEl.act, sEl.def].forEach(function(f){ f.addEventListener(ev, updateSetup); });
+    [sEl.age, sEl.height, sEl.weight, sEl.act, sEl.def, $("sDefCustom")].forEach(function(f){ f.addEventListener(ev, updateSetup); });
+  });
+  sEl.def.addEventListener("change", function(){
+    var c = sEl.def.value === "custom";
+    $("sDefCustom").hidden = !c;
+    if (c) $("sDefCustom").focus();
   });
   $("setupForm").addEventListener("submit", function(e){
     e.preventDefault();
